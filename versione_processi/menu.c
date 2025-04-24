@@ -3,8 +3,7 @@
 #include "menu.h"
 #include "utils.h"
 
-
-int print_title(WINDOW *win, char *filename) {
+int print_title(WINDOW *win, const char *filename) {
 
     char line[256];
 
@@ -55,7 +54,7 @@ int start_menu(WINDOW *win) {
     noecho();
     keypad(win, true);
 
-    char *title_path = "res/title.txt";
+    const char *title_path = "res/title.txt";
 
     char *option[] = {
         "NEW GAME",
@@ -100,3 +99,6 @@ int start_menu(WINDOW *win) {
     return selected;    //Ritorno l'opzione selezionata
 }
 
+// void print_how_to_play(WINDOW *win) {
+    
+// }

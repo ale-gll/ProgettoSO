@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include "utils.h"
 #include "menu.h"
+#include "game.h"
 
 int main() {
     initscr();
@@ -9,7 +10,7 @@ int main() {
     start_color();
 
     //Disegno la finestra di gioco
-    int height = 25, width = 60;
+    int height = 25, width = 70;
     WINDOW *game_win = newwin(height, width, (LINES-height)/2, (COLS-width)/2);
     box(game_win, 0, 0);
     wrefresh(game_win);
@@ -18,14 +19,17 @@ int main() {
 
     while(1){
         int choice = start_menu(game_win);
-        
-        if(choice == NEW_GAME); //Chiama funzione che gestisce il loop di gioco
+
+        if(choice == NEW_GAME) {
+            wclear(game_win);
+            game_loop(game_win);
+            break;
+        };
 
         if(choice == HOW_TO_PLAY); //Chiama procedura di stampa info gioco
         
         if(choice == EXIT_GAME) break;  //Esci dal gioco
     }
-
 
     delwin(game_win);
     endwin();

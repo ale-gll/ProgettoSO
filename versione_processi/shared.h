@@ -1,52 +1,44 @@
 /*
-    Questo file contiene Strutture dati condivise, costanti, enum, ...
+    Questo file contiene principalmente Strutture dati condivise
 */
 
 #ifndef SHARED_H
 #define SHARED_H
 
 //Dimensioni delle sprite
-#define FROG_LENGTH 5
+#define FROG_WIDTH 5
 #define FROG_CROC_HEIGHT 2  //rana e coccodrillo hanno la stessa altezza
 #define CROC_WIDTH 10
 
 
-//Sprite dei personaggi
-char *frog_sprite[] = {
-    "[^v^]",
-    ";[ ];"
-};
-
-//Sprite del coccodrillo volto a sx
-char *croc_sprite_sx[] = {
-    " /ç'~~~~~|",
-    "[^_<___>_|"
-};
-
-//Sprite del coccodrillo volto a dx
-char *croc_sprite_dx[] = {
-    "|~~~~~'ç\\ ",
-    "|_<___>_^]"
-};
-
-
 //Tipi di oggetti dinamici presenti in gioco
-typedef enum {
-    OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE
-} ObjectType;
+typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE } ObjectType;
 
-typedef enum {
-    
+//I coccodrilli e i proiettili/granate si muovono in un unica direzione a parte la rana
+typedef enum { DIR_LEFT, DIR_RIGHT, DIR_UP, DIR_DOWN, DIR_UNKNOWN } ObjectDirection;
+
+typedef enum { 
+    MSG_UPDATE_POS,     //Aggiorna posizione oggetto
+    MSG_FIRE            //Spara un proiettile
 } MessageType;
 
-//Oggetto dinamico
-typedef struct 
-{
-    int x;
-    int y;
-    ObjectType type;
+//Info di un oggetto dinamico
+typedef struct {
+    int pid;
+    int y, x;
+    int type;
+    int direction;  //DIR_UNKNOWN nel caso della rana
 } Object;
 
+//Struttura di un messaggio inviabile al gestore della grafica
+typedef struct {
+    int msg_type;
+    Object obj;
+    int stream_index;   //Indice in Streams
+    int stream_objs_index;  //Indice nell'array di Objects di uno Stream
+} Message;
 
+
+void set_message(Message *m, int msg_type, Object obj, int *stream_index, int *stream_objs_index);
 
 #endif

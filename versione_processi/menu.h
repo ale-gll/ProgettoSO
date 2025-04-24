@@ -1,3 +1,6 @@
+/*
+    Questo file contiene le funzioni relative al menu di gioco
+*/
 
 #ifndef MENU_H
 #define MENU_H
@@ -19,11 +22,15 @@ int start_menu(WINDOW *win);
     Ritorna:
     > ERR   -> in caso di errore
     > 0     -> altrimenti
+
+    Il nome del file è in sola lettura
 */
-int print_title(WINDOW *win, char *filename);
+int print_title(WINDOW *win, const char *filename);
 
 void draw_options(WINDOW *win, char *option[], int num_options, int start_y, int start_x, int options_y[]);
 
 void highlight_option(WINDOW *win, int current, int previous, int options_y[], int x, char *option[]);
+
+// void print_how_to_play(WINDOW *win);
 
 #endif
