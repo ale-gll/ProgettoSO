@@ -6,7 +6,7 @@
 
 #define NUM_STREAMS 8
 #define MAX_CROCS_PER_STREAM 3
-#define BURROW_WIDTH 6
+#define BURROW_WIDTH 8
 #define NUM_BURROWS 5
 
 //Sprite dei personaggi (dichiarazioni)
@@ -24,7 +24,7 @@ typedef struct {
 
 //Definisce dove inizia e finisce una tana (indica anche se è stata occupata)
 typedef struct {
-    bool is_empty;
+    bool is_occupied;
     int start_x, end_x;
 } Burrow;
 
@@ -36,7 +36,9 @@ typedef struct {
 } Stats;
 
 //Inizializza il campo da gioco
-void init_playground(WINDOW *win, int win_height, int win_width, Object *frog, Burrow burrows[5], Stats *stats);
+void init_playground(WINDOW *win, WINDOW *stats_win, int win_height, int win_width, 
+    Object frog, Burrow burrows[5], Stats stats)
+;
 
 //Disegna l'oggetto rana
 void draw_frog(WINDOW *win, Object frog, bool scared);
@@ -53,15 +55,9 @@ void draw_burrows(WINDOW *win, int y, int x);
 //Disegna le statistiche di gioco
 void draw_stats(WINDOW *win, Stats stats);
 
-//Riempie una parte di sfondo
-void fill_area_with_color(WINDOW *win, int start_y, int start_x, int height, int width, int color_pair);
-
-
-/*----------- Funzioni per la rimozione di oggetti dallo schermo ------------*/
-
 //Cancella la rana
 void remove_frog(WINDOW *win, int y, int x, bool on_grass);
 
-
+void remove_stats(WINDOW *win);
 
 #endif

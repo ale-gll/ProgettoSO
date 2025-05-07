@@ -10,19 +10,20 @@ int main() {
     start_color();
 
     //Disegno la finestra di gioco
-    int height = 25, width = 70;
-    WINDOW *game_win = newwin(height, width, (LINES-height)/2, (COLS-width)/2);
-    box(game_win, 0, 0);
-    wrefresh(game_win);
+    int height = 23, width = 70;
+    int start_y = (LINES-height)/2 , start_x = (COLS-width)/2;
+    WINDOW *win = newwin(height, width, start_y-1, start_x);
+    box(win, 0, 0);
+    wrefresh(win);
 
     init_game_colors(); //Inizializzo i colori
 
     while(1){
-        int choice = start_menu(game_win);
+        int choice = start_menu(win);
 
         if(choice == NEW_GAME) {
-            wclear(game_win);
-            game_loop(game_win);
+            wclear(win);
+            game_loop(win, start_y, start_x);
             break;
         };
 
@@ -31,7 +32,7 @@ int main() {
         if(choice == EXIT_GAME) break;  //Esci dal gioco
     }
 
-    delwin(game_win);
+    delwin(win);
     endwin();
     return 0;
 }

@@ -18,8 +18,11 @@ typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE } ObjectType;
 typedef enum { DIR_LEFT, DIR_RIGHT, DIR_UP, DIR_DOWN, DIR_UNKNOWN } ObjectDirection;
 
 typedef enum { 
-    MSG_UPDATE_POS,     //Aggiorna posizione oggetto
-    MSG_FIRE            //Spara un proiettile
+    MSG_UPDATE_POS,         //Aggiorna posizione oggetto
+    MSG_FIRE,               //Spara un proiettile
+    MSG_FROG_ON_CROC,       //La rana si è spostata su un coccodrillo
+    MSG_SET_FROG,           //Imposta i parametri della rana
+    MSG_KILL                //Uccide il processo
 } MessageType;
 
 //Info di un oggetto dinamico
@@ -37,7 +40,6 @@ typedef struct {
     int stream_index;   //Indice in Streams
     int stream_objs_index;  //Indice nell'array di Objects di uno Stream
 } Message;
-
 
 void set_message(Message *m, int msg_type, Object obj, int *stream_index, int *stream_objs_index);
 
