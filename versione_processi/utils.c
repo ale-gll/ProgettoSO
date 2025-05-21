@@ -1,4 +1,3 @@
-#include <curses.h>
 #include <stdlib.h>
 #include <unistd.h> 
 #include <sys/mman.h>
@@ -7,22 +6,7 @@
 #include "utils.h"
 
 
-void init_game_colors() {
-    init_color(COLOR_BROWN, 245, 222, 179);
-    
-    //Inizializzo le coppie colore
-    init_pair(FROG_COLOR_PAIR, COLOR_BLACK, COLOR_MAGENTA);    //Rana
-    init_pair(CROC_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Coccodrilli
-    init_pair(SIDEWALK_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Marciapiede, argine
-    init_pair(START_MENU_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK); //Testo del menu
-    init_pair(RIVER_COLOR_PAIR, COLOR_BLACK, COLOR_BLUE);   //Fiume
-    init_pair(BURROW_COLOR_PAIR, COLOR_BLACK, COLOR_BROWN); //Tana
-    init_pair(BLACK_COLOR_PAIR, COLOR_BLACK, COLOR_BLACK);
-    init_pair(SCARED_FROG_COLOR_PAIR, COLOR_BLACK, COLOR_RED);    //Rana spaventata
-    init_pair(STATS_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);  //Statistiche
-}
-
-sem_t *init_shared_semaphore(const char *sem_name) {
+sem_t* init_shared_semaphore(const char *sem_name) {
 
     //Creo un oggetto di memoria condivisa
     int shm_fd = shm_open(sem_name, O_CREAT | O_RDWR, 0666);

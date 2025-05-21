@@ -10,13 +10,13 @@ CFLAGS = -Wall -Wextra -Wpedantic
 # $(CFLAGS) -> opzioni usate
 # $@	-> nome del target
 # $<	-> prima dipendenza del target
-frogger_versione_processi: main.o menu.o utils.o frog_process.o game.o graphics.o shared.o
+frogger_versione_processi: main.o menu.o utils.o frog_process.o  croc_process.o game.o graphics.o shared.o
 	$(CC) $^ $(CFLAGS) -lncurses -o $@
 
 main.o: main.c menu.h utils.h game.h
 	$(CC) -c $< -o $@
 	
-menu.o: menu.c menu.h utils.h
+menu.o: menu.c menu.h graphics.h
 	$(CC) -c $< -o $@
 
 utils.o: utils.c utils.h
@@ -28,10 +28,14 @@ frog_process.o: frog_process.c frog_process.h shared.h
 game.o: game.c game.h graphics.h utils.h frog_process.h  croc_process.h shared.h
 	$(CC) -c $< -o $@
 
-graphics.o: graphics.c graphics.h utils.h shared.h
+graphics.o: graphics.c graphics.h shared.h
 	$(CC) -c $< -o $@
 
 shared.o: shared.c shared.h
+	$(CC) -c $< -o $@
+
+croc_process.o: croc_process.c croc_process.h shared.h
+	$(CC) -c $< -o $@
 
 clean:
 	rm *.o

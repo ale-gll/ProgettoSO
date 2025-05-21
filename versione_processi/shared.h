@@ -20,7 +20,7 @@ typedef enum { DIR_LEFT, DIR_RIGHT, DIR_UP, DIR_DOWN, DIR_UNKNOWN } ObjectDirect
 typedef enum { 
     MSG_UPDATE_POS,         //Aggiorna posizione oggetto
     MSG_FIRE,               //Spara un proiettile
-    MSG_FROG_ON_CROC,       //La rana si è spostata su un coccodrillo
+    MSG_TOGGLE_ON_CROC,       //La rana si è spostata su/da un coccodrillo
     MSG_SET_FROG,           //Imposta i parametri della rana
     MSG_KILL                //Uccide il processo
 } MessageType;

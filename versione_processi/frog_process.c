@@ -8,16 +8,11 @@
 #include "frog_process.h"
 
 
-void close_used_pipe_ends_frog(int shared_write_fd, int private_read_fd) {
-    close(shared_write_fd);
-    close(private_read_fd);
-}
-
-pid_t frog_process(WINDOW *win, int shared_pipe_fd[2], int private_pipe_fd[2], sem_t *sync_sem, Object frog) {
+pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
 
     pid_t pid = fork();
     if(pid == -1) {
-        exit(-1);
+        exit(EXIT_FAILURE);
     } else if(pid == 0) //Processo figlio
     {
         bool on_croc = false;   //Rileva se la rana si trova sopra un coccodrillo
@@ -29,9 +24,9 @@ pid_t frog_process(WINDOW *win, int shared_pipe_fd[2], int private_pipe_fd[2], s
         frog.pid = getpid();
 
         //Chiudo i lati delle pipe che non uso
-        close(shared_pipe_fd[0]);
-        close(private_pipe_fd[1]);
-        set_nonblocking(private_pipe_fd[0]);    //lettura non bloccante
+        close(ipc->shared_pipe[0]);
+        close(ipc->frog_pipe[1]);
+        set_nonblocking(ipc->frog_pipe[0]);    //lettura non bloccante
         while (1)
         {
             bool moved = false;
@@ -68,17 +63,19 @@ pid_t frog_process(WINDOW *win, int shared_pipe_fd[2], int private_pipe_fd[2], s
                 Message m_out;
                 set_message(&m_out, MSG_UPDATE_POS, frog, NULL, NULL);
 
-                sem_wait(sync_sem);
-                write(shared_pipe_fd[1], &m_out, sizeof(Message));
-                sem_post(sync_sem);
+                sem_wait(ipc->sync_sem);
+                if(write(ipc->shared_pipe[1], &m_out, sizeof(Message)) == -1) {
+                    //Errore gestito "silenziosamente"
+                }
+                sem_post(ipc->sync_sem);
             }
 
 
             // Controllo se arriva un messaggio dal processo principale
             Message m_in;
-            ssize_t n = read(private_pipe_fd[0], &m_in, sizeof(Message));
+            ssize_t n = read(ipc->frog_pipe[0], &m_in, sizeof(Message));
             if (n > 0) {
-                if(m_in.msg_type == MSG_FROG_ON_CROC) {
+                if(m_in.msg_type == MSG_TOGGLE_ON_CROC) {
                     on_croc = !on_croc;
                 }
 
@@ -87,7 +84,8 @@ pid_t frog_process(WINDOW *win, int shared_pipe_fd[2], int private_pipe_fd[2], s
                 }
 
                 if (m_in.msg_type == MSG_KILL) {
-                    close_used_pipe_ends_frog(shared_pipe_fd[1], private_pipe_fd[0]);
+                    clean_up_pipe(ipc->shared_pipe);
+                    clean_up_pipe(ipc->frog_pipe);
                     exit(0);
                 }                
             }

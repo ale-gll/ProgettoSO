@@ -1,7 +1,6 @@
 #include <curses.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "utils.h"
 #include "graphics.h"
 
 //Sprite tane
@@ -31,16 +30,31 @@ char *frog_sprite[] = {
 
 //Sprite del coccodrillo volto a sx
 char *croc_sprite_sx[] = {
-    " /ç'~~~~~|",
+    " /ç ~~~~~|",
     "[^_<___>_|"
 };
 
 //Sprite del coccodrillo volto a dx
 char *croc_sprite_dx[] = {
-    "|~~~~~'ç\\ ",
+    "|~~~~~ ç\\",
     "|_<___>_^]"
 };
 
+
+void init_game_colors() {
+    init_color(COLOR_BROWN, 245, 222, 179);
+    
+    //Inizializzo le coppie colore
+    init_pair(FROG_COLOR_PAIR, COLOR_BLACK, COLOR_MAGENTA);    //Rana
+    init_pair(CROC_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Coccodrilli
+    init_pair(SIDEWALK_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Marciapiede, argine
+    init_pair(START_MENU_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK); //Testo del menu
+    init_pair(RIVER_COLOR_PAIR, COLOR_BLACK, COLOR_BLUE);   //Fiume
+    init_pair(BURROW_COLOR_PAIR, COLOR_BLACK, COLOR_BROWN); //Tana
+    init_pair(BLACK_COLOR_PAIR, COLOR_BLACK, COLOR_BLACK);
+    init_pair(SCARED_FROG_COLOR_PAIR, COLOR_BLACK, COLOR_RED);    //Rana spaventata
+    init_pair(STATS_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);  //Statistiche
+}
 
 void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_width, 
     Object frog, Burrow burrows[5], Stats stats) 
@@ -108,13 +122,12 @@ void draw_stats(WINDOW *win, Stats stats) {
     wattron(win, COLOR_PAIR(STATS_COLOR_PAIR));
     
     int section = width / 3;
-    mvwprintw(win, 0, section / 2 - 4, "Time: %d", stats.time);
-    mvwprintw(win, 0, section + section / 2 - 5, "Score: %d", stats.score);
-    mvwprintw(win, 0, 2 * section + section / 2 - 5, "Lives: %d", stats.lives);
+    mvwprintw(win, 1, section / 2 - 4, "Time: %d", stats.time);
+    mvwprintw(win, 1, section + section / 2 - 5, "Score: %d", stats.score);
+    mvwprintw(win, 1, 2 * section + section / 2 - 5, "Lives: %d", stats.lives);
 
     wattroff(win, COLOR_PAIR(STATS_COLOR_PAIR));
 }
-
 
 void remove_frog(WINDOW *win, int y, int x, bool on_grass) { 
     char *grass[] = {
@@ -142,3 +155,25 @@ void remove_stats(WINDOW *win) {
     int width = getmaxx(win);
     mvwhline(win, 0, 0, ' ', width); //Cancella tutta la riga
 }
+
+void remove_croc(WINDOW *win, int y, int x) {
+    char *empty[] = {
+        "          ",
+        "          "
+    };
+
+    for (int i = 0; i < FROG_CROC_HEIGHT; i++) {
+        mvwprintw(win, y + i, x, "%s", empty[i]);
+    }
+}
+
+
+
+void close_window(WINDOW *win) {
+    if (win != NULL) {
+        wclear(win);
+        wrefresh(win);
+        delwin(win);
+    }
+}
+

@@ -1,3 +1,19 @@
 HOW TO PLAY
 
-Game description
+FROGGER is a time-based game.  
+Use the ARROW KEYS to move the frog across the river and reach 
+the burrows before time runs out!  
+If time runs out and you have not reached a burrow, 
+you will lose a life.
+The river is full of crocodiles, which can shoot projectiles.
+Press ENTER to make the frog shoot two granades both left and 
+right to neutralize any incoming crocodile bullet.
+
+
+SCORING:
+
+- Reach a burrow: +500 points
+- Time bonus: +20 per second left
+- Move forward (KEY_UP): +9 points
+- Move down (KEY_DOWN): -5 points
+- Complete all burrows without dying: +1500 points
