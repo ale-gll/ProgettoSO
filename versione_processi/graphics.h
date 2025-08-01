@@ -2,7 +2,7 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
-#include "shared.h"
+#include "utils.h"
 
 //Define dei colori
 #define COLOR_BROWN 11
@@ -18,7 +18,6 @@
 
 
 #define NUM_STREAMS 8
-#define MAX_CROCS_PER_STREAM 3
 #define BURROW_WIDTH 8
 #define NUM_BURROWS 5
 

@@ -2,7 +2,7 @@
 #ifndef FROG_PROCESS_H
 #define FROG_PROCESS_H
 
-#define FROG_PROCESS_COOLDOWN 100000
+#define FROG_PROCESS_COOLDOWN 20000
 
 pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog);
 

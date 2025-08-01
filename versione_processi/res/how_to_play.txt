@@ -17,3 +17,4 @@ SCORING:
 - Move forward (KEY_UP): +9 points
 - Move down (KEY_DOWN): -5 points
 - Complete all burrows without dying: +1500 points
+- Lose a life: -500 points

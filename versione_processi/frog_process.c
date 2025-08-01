@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <semaphore.h>
 #include "utils.h"
-#include "shared.h"
 #include "frog_process.h"
 
 
@@ -61,7 +60,7 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
             //Scrivo nella pipe solo se il carattere si è mosso
             if(moved){
                 Message m_out;
-                set_message(&m_out, MSG_UPDATE_POS, frog, NULL, NULL);
+                set_message(&m_out, MSG_UPDATE_POS, &frog, NULL, NULL, NULL);
 
                 sem_wait(ipc->sync_sem);
                 if(write(ipc->shared_pipe[1], &m_out, sizeof(Message)) == -1) {
@@ -75,12 +74,12 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
             Message m_in;
             ssize_t n = read(ipc->frog_pipe[0], &m_in, sizeof(Message));
             if (n > 0) {
-                if(m_in.msg_type == MSG_TOGGLE_ON_CROC) {
-                    on_croc = !on_croc;
-                }
-
                 if(m_in.msg_type == MSG_SET_FROG) {
                     frog = m_in.obj;
+                }
+
+                if(m_in.msg_type == MSG_TOGGLE_ON_CROC) {
+                    on_croc = !on_croc;
                 }
 
                 if (m_in.msg_type == MSG_KILL) {

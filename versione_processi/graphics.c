@@ -1,5 +1,6 @@
 #include <curses.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include "graphics.h"
 
@@ -30,14 +31,14 @@ char *frog_sprite[] = {
 
 //Sprite del coccodrillo volto a sx
 char *croc_sprite_sx[] = {
-    " /ç ~~~~~|",
-    "[^_<___>_|"
+    " _|O      |",
+    "|^________|"
 };
 
 //Sprite del coccodrillo volto a dx
 char *croc_sprite_dx[] = {
-    "|~~~~~ ç\\",
-    "|_<___>_^]"
+    "|      O|_ ",
+    "|________^|"
 };
 
 
@@ -46,7 +47,7 @@ void init_game_colors() {
     
     //Inizializzo le coppie colore
     init_pair(FROG_COLOR_PAIR, COLOR_BLACK, COLOR_MAGENTA);    //Rana
-    init_pair(CROC_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Coccodrilli
+    init_pair(CROC_COLOR_PAIR, COLOR_BLACK, COLOR_CYAN);   //Coccodrilli
     init_pair(SIDEWALK_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Marciapiede, argine
     init_pair(START_MENU_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK); //Testo del menu
     init_pair(RIVER_COLOR_PAIR, COLOR_BLACK, COLOR_BLUE);   //Fiume
@@ -86,17 +87,45 @@ void draw_frog(WINDOW *win, Object frog, bool scared) {
 }
 
 void draw_croc(WINDOW *win, Object croc) {
-    if(croc.type != OBJ_CROC) return;
+    if (croc.type != OBJ_CROC) return;
 
-    //Assegno la sprite da disegnare secondo la direzione del coccodrillo
+    // Seleziona la sprite a seconda della direzione
     char **sprite = (croc.direction == DIR_LEFT) ? croc_sprite_sx : croc_sprite_dx;
 
-    for(int i = 0; i < FROG_CROC_HEIGHT; i++){
-        wattron(win, COLOR_PAIR(CROC_COLOR_PAIR));
-        mvwprintw(win, (croc.y + i), croc.x, "%s", sprite[i]);
-        wattroff(win, COLOR_PAIR(CROC_COLOR_PAIR));
+    int win_width = getmaxx(win);  // larghezza della finestra
+
+    wattron(win, COLOR_PAIR(CROC_COLOR_PAIR));
+
+    for (int i = 0; i < FROG_CROC_HEIGHT; i++) {
+        int row = croc.y + i;
+        int start_x = croc.x;
+        int sprite_len = CROC_WIDTH;
+
+        int visible_start = 0;           // indice da cui iniziare nella stringa
+        int visible_len = sprite_len;    // quanti caratteri disegnare
+
+        // Se parte della sprite va fuori a sinistra
+        if (start_x < 0) {
+            visible_start = -start_x;
+            visible_len -= visible_start;
+            start_x = 0;
+        }
+
+        // Se parte della sprite va fuori a destra
+        if (start_x + visible_len > win_width) {
+            visible_len = win_width - start_x;
+        }
+
+        // Disegna solo se c'è una parte visibile
+        if (visible_len > 0) {
+            mvwaddnstr(win, row, start_x, &sprite[i][visible_start], visible_len);
+        }
     }
+
+    wattroff(win, COLOR_PAIR(CROC_COLOR_PAIR));
 }
+
+
 
 void draw_walkable(WINDOW *win, int y, int x) {
     for(int i = 0; i < FROG_CROC_HEIGHT; i++) {
@@ -157,17 +186,28 @@ void remove_stats(WINDOW *win) {
 }
 
 void remove_croc(WINDOW *win, int y, int x) {
-    char *empty[] = {
-        "          ",
-        "          "
-    };
+    int win_width = getmaxx(win);
 
     for (int i = 0; i < FROG_CROC_HEIGHT; i++) {
-        mvwprintw(win, y + i, x, "%s", empty[i]);
+        int start = x;
+        int len = CROC_WIDTH;
+
+        // Clipping sinistro
+        if (start < 0) {
+            len += start; // riduce lunghezza
+            start = 0;
+        }
+
+        // Clipping destro
+        if (start + len > win_width) {
+            len = win_width - start;
+        }
+
+        if (len > 0) {
+            mvwaddnstr(win, y + i, start, "           ", len); // "           " deve avere >= CROC_WIDTH spazi
+        }
     }
 }
-
-
 
 void close_window(WINDOW *win) {
     if (win != NULL) {
