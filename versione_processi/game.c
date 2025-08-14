@@ -17,14 +17,12 @@ void init_streams(Stream *streams, int start_y) {
     int direction = (rand() % 2 == 0) ? DIR_LEFT : DIR_RIGHT;
 
     for (int i = 0; i < NUM_STREAMS; i++) {
-        int crocs_per_stream = (rand() % 2) + 2; // 2 o 3 crocs per stream
+        int crocs_per_stream = (rand() % 2) + 3; // 3 o 4 crocs per stream
 
         streams[i].y = start_y;
         streams[i].direction = direction;
+        streams[i].spawn_time_interval = (rand() % 3) + 2;   //2,3,4 secondi
         streams[i].delay = delay[i % 2];
-
-        streams[i].next_croc_index = 0;
-        streams[i].next_proj_index = 0;
 
         streams[i].num_crocs = crocs_per_stream;
         streams[i].num_projs = MAX_PROJ_PER_STREAM;
@@ -69,6 +67,44 @@ int get_number_of_projs(Stream *streams) {
 
     for (int i = 0; i < NUM_STREAMS; i++) acc += streams[i].num_projs;
     return acc;
+}
+
+
+int get_free_pid_index(ActiveProcesses *ap, int size) {
+    for (int i = 0; i < size; i++)
+    {
+        if(ap->croc_pids[i] == -1) return i;
+    }
+    return -1;  // Nessuno slot disponibile
+}
+
+
+int get_free_stream_slot_index(Object *objs, int size) {
+    for (int i = 0; i < size; i++)
+    {
+        if(objs[i].pid == -1) return i;
+    }
+    return -1;    
+}
+
+
+void init_active_processes_struct(ActiveProcesses *ap, Stream *streams) {
+    
+    ap->total_crocs = get_number_of_crocs(streams);
+    ap->total_projs = get_number_of_projs(streams);
+
+    // Alloco la memoria
+    ap->croc_pids = malloc(ap->total_crocs * sizeof(pid_t));
+    ap->proj_pids = malloc(ap->total_projs * sizeof(pid_t));
+
+    // Inizializzo gli array 
+    for (int i = 0; i < ap->total_crocs; i++) {
+        ap->croc_pids[i] = -1;
+    }
+
+    for (int i = 0; i < ap->total_projs; i++) {
+        ap->proj_pids[i] = -1;
+    }
 }
 
 
@@ -186,20 +222,6 @@ bool check_win(Stats stats, Burrow burrows[5]) {
 }
 
 
-bool check_is_on_croc(Object frog, Object *crocs, int num_crocs) {
-    for(int i = 0; i < num_crocs; i++) {
-        if(crocs[i].pid > 0) {
-            if(frog.y == crocs[i].y &&
-               frog.x + FROG_WIDTH > crocs[i].x &&
-               frog.x < crocs[i].x + CROC_WIDTH) {
-                return true; // Rana sopra un coccodrillo valido
-            }
-        }
-    }
-    return false;
-}
-
-
 void remove_all_stream_objects(WINDOW *win, Stream *stream) {
     for (int i = 0; i < NUM_STREAMS; i++) {
         for (int j = 0; j < stream[i].num_crocs; j++) {
@@ -232,65 +254,61 @@ void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winne
 }
 
 
-bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width){
+bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, ActiveProcesses *ap, int window_width) {
+
+    bool flag = true;
 
     for (int i = 0; i < NUM_STREAMS; i++) {
-        Object croc;
-        croc.direction = streams[i].direction;
-        croc.type = OBJ_CROC;
-        croc.x = (streams[i].direction == DIR_LEFT) ? window_width : -CROC_WIDTH;
-        croc.y = streams[i].y;
+        flag &= spawn_single_croc(&streams[i], i, ipc, ap, window_width);
+    }   
+    
+    return flag;
+}
 
-        //Trova una pipe libera
-        int pipe_index = find_free_croc_pipe_slot(ipc->croc_pipes, ipc->total_crocs);
-        if (pipe_index == -1) {
-            return false;
-        }
-        
-        //Inizializza pipe
-        if(pipe(ipc->croc_pipes[pipe_index].pipe) == -1) {
-            return false;
-        }
-        
-        //Avvio processo
-        pid_t pid = croc_process(ipc, croc, i, streams[i].next_croc_index, streams[i].delay, pipe_index);
-        if (pid == -1) {
-            return false;
-        }
-        close(ipc->croc_pipes[pipe_index].pipe[0]); //Lato lettura
 
-        ipc->croc_pipes[pipe_index].pid = pid;      
-        streams[i].crocs[streams[i].next_croc_index] = croc;
-        streams[i].next_croc_index += 1;
+bool is_spawn_time(time_t now, Stream s) {
+    return (now - s.last_spawn_time > s.spawn_time_interval);
+}
+
+
+bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, ActiveProcesses *ap, int window_width) {
+    Object croc;
+
+    croc.direction = stream->direction;
+    croc.type = OBJ_CROC;
+    croc.x = (stream->direction == DIR_LEFT) ? window_width : -CROC_WIDTH;
+    croc.y = stream->y;
+    
+    int pid_index = get_free_pid_index(ap, ap->total_crocs);
+    if(pid_index == -1) {
+        return false;   // nessuno slot processi libero
     }
+
+    int croc_index = get_free_stream_slot_index(stream->crocs, stream->num_crocs);
+    if(croc_index == -1) {
+        return false;   // nessuno slot stream libero
+    }
+
+    // Avvio il processo
+    pid_t pid = croc_process(ipc, croc, stream_index, croc_index, stream->delay, pid_index);
+    if(pid == -1) {
+        return false;   // errore fork
+    }
+
+    // Aggiorna struttura dati
+    croc.pid = pid;
+    ap->croc_pids[pid_index] = pid;
+    stream->crocs[croc_index] = croc;
+    stream->last_spawn_time = time(NULL);
+
+    log_croc_event(DEBUG_LOG_FILE, "Spawned", stream_index, croc_index, pid, croc.x, croc.y);
+
     return true;
 }
 
 
-void kill_object(int write_fd, pid_t pid) {
-    Message m; 
-    set_message(&m, MSG_KILL, NULL, NULL, NULL, NULL);
-    ssize_t w = write(write_fd, &m, sizeof m);
-    if (w == -1) debug_log("kill_object", pid, "Write failed", DEBUG_LOG_FILE);
-    else {
-        debug_log("kill_object", pid, "Successful write", DEBUG_LOG_FILE);
-    }
-}
-
-
-void kill_all(ProcessComm *obj_pipe_array, int arr_size) {
-
-    for (int i = 0; i < arr_size; i++) {
-        if (obj_pipe_array->pid > 0) {
-            kill_object(obj_pipe_array[i].pipe[1], obj_pipe_array[i].pid);
-            waitpid(obj_pipe_array[i].pid, NULL, 0);
-        }
-    }
-    
-}
-
-
 void game_loop(WINDOW *win, int start_y, int start_x) {
+    srand(time(NULL));
 
     IPCHandles ipc;
     char *sync_sem_name = "/shared_semaphore";
@@ -302,28 +320,28 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     //Inizializzo gli Stream del fiume
     Stream streams[NUM_STREAMS];
     init_streams(streams, win_height-4);
-    ipc.total_crocs = get_number_of_crocs(streams);
-    ipc.total_projs = get_number_of_projs(streams);
-    
 
     //Inizializzo gli strumenti per la comunicazione interprocesso
     bool flag = init_ipc_handles(&ipc, sync_sem_name);
 
-
-    srand(time(NULL));
 
     //Inizializzo il campo di gioco
     Object frog;
     Burrow burrows[NUM_BURROWS];
     Stats stats;
 
-    frog = init_frog(win_height, win_width); 
+    frog = init_frog(win_height, win_width);     
     init_burrows(burrows); 
     init_stats(&stats);
     init_playground(win, stats_win, win_height, win_width, frog, burrows, stats);
 
-    //Inizializzo i coccodrilli e le loro pipe
-    flag &= spawn_initial_crocs(streams, &ipc, win_width);
+
+    // Inizializzo i coccodrilli
+    ActiveProcesses active_processes;
+    init_active_processes_struct(&active_processes, streams);
+
+    // Avvio i coccodrilli
+    flag &= spawn_initial_crocs(streams, &ipc, &active_processes, win_width);
 
     //Inizializzo il processo rana
     pid_t frog_pid = frog_process(win, &ipc, frog);
@@ -340,7 +358,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     bool on_croc = false;
     int hovered_croc = -1;  //pid del coccodrillo dove si trova la rana
     time_t last_update_time = time(NULL);
-    
+
 
     close(ipc.shared_pipe[1]);
     close(ipc.frog_pipe[0]);
@@ -386,35 +404,36 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         update_lane(&active_lane, m.obj.direction); //Aggiorno active_lane
                         on_grass = is_on_grass(active_lane);
 
-                        //La rana si trova sull'acqua
-                        if(active_lane > 0 && active_lane <= NUM_STREAMS) {
-                            on_croc = check_is_on_croc(m.obj, streams[active_lane-1].crocs, streams[active_lane-1].num_crocs);
-                        }
-                        
-                        if(!on_grass && !on_croc) reset = true;
-                        draw_frog(win, m.obj, is_scared);
+                        draw_frog(win, m.obj, is_scared);                        
                         frog = m.obj;
                     }
                 }
             break;
         
             case OBJ_CROC:
-                if(m.msg_type == MSG_UPDATE_POS) 
+                if (m.msg_type == MSG_UPDATE_POS) 
                 {
                     old_croc = streams[m.stream_index].crocs[m.stream_obj_index];
+                    pid_t pid = active_processes.croc_pids[m.pid_index];
 
-                    //Se il processo esiste ancora disegno
-                    if(ipc.croc_pipes[m.pipe_index].pid > 0) {
-                        if(is_fully_out_of_screen(win_width, m.obj.x, CROC_WIDTH)) {
+                    // Se il processo esiste ancora disegno
+                    if (pid > 0)
+                    {
+                        if (is_fully_out_of_screen(win_width, m.obj.x, CROC_WIDTH)) // Fuori dallo schermo
+                        {
+                            // Rimuovo dal rendering
                             remove_croc(win, old_croc.y, old_croc.x);
-                            kill_object(ipc.croc_pipes[m.pipe_index].pipe[1], (pid_t) old_croc.pid);
-                            waitpid((pid_t) old_croc.pid, NULL, 0);
-                            close(ipc.croc_pipes[m.pipe_index].pipe[1]);    //Lato scrittura
 
-                            ipc.croc_pipes[m.pipe_index].pid = -1;
+                            // Uccido il processo
+                            kill(pid, SIGTERM);
+                            waitpid(pid, NULL, 0);                          
+
+                            // Libero lo slot processi
+                            active_processes.croc_pids[m.pid_index] = -1;
+
+                            // Libero lo slot nello stream
                             streams[m.stream_index].crocs[m.stream_obj_index] = OBJ_DUMMY;
-                            streams[m.stream_index].next_croc_index = m.stream_obj_index;
-                        } 
+                        }
                         else {
                             remove_croc(win, old_croc.y, old_croc.x);
                             draw_croc(win, m.obj);
@@ -422,6 +441,19 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         }
                     }
                 }
+
+                // Dopo un intervallo casuale genero un nuovo coccodrillo
+                time_t t = time(NULL);
+                if(is_spawn_time(t, streams[m.stream_index])) {
+                    bool success = spawn_single_croc(&streams[m.stream_index], m.stream_index, &ipc, &active_processes, win_width);
+
+                    if(success) 
+                    {
+                        // Aggiorno lo stream
+                        streams[m.stream_index].last_spawn_time = t;
+                        streams[m.stream_index].spawn_time_interval = (rand() % 3) + 2;
+                    }
+                } 
             break;
 
             
@@ -431,25 +463,11 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             }
         }
 
-        //Reset della manche 
-        if(reset) {
-            //Cancello e ricreo i coccodrilli
-            kill_all(ipc.croc_pipes, ipc.total_crocs);
-            remove_all_stream_objects(win, streams);
-            free_streams(streams);
-            init_streams(streams, start_y);
-
-            // for (int i = 0; i < ipc.total_crocs; i++)
-            // {
-            //     clean_up_pipe()
-            // }
-                      
-
-            
+        // Reset della manche 
+        if(reset) {         
             //Cancello e resetto la rana
             remove_frog(win, frog.y, frog.x, on_grass);
             reset_frog(win, &ipc, &frog_pid, &frog, &active_lane, is_scared, win_height, win_width);
-
             reset = false;
         }
 
@@ -484,12 +502,49 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     kill(frog_pid, SIGTERM);
     waitpid(frog_pid, NULL, 0);
 
-    kill_all(ipc.croc_pipes, ipc.total_crocs);
-    kill_all(ipc.proj_pipes, ipc.total_projs);
+    kill_all(active_processes.croc_pids, active_processes.total_crocs);
 
     cleanup_ipc_handles(&ipc, sync_sem_name);
-    free_streams(streams);
 
     close_window(stats_win);    //Elimino la finestra delle statistiche
     print_game_result(win, win_height, win_width, is_winner);   //Stampa schermata di fine
+}
+
+
+void log_crocs_state(const char *filename, ActiveProcesses *ap, Stream *streams, int num_streams)
+{
+    FILE *f = fopen(filename, "a");
+    if (!f) {
+        perror("Errore apertura file log");
+        return;
+    }
+
+    // Timestamp solo ora:min:sec
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    char time_buf[9];
+    strftime(time_buf, sizeof(time_buf), "%H:%M:%S", tm_info);
+
+    fprintf(f, "[%s]\n", time_buf);
+
+    // Array pid globali
+    fprintf(f, "PIDs: %d [", ap->total_crocs);
+    for (int i = 0; i < ap->total_crocs; i++) {
+        fprintf(f, "%d", ap->croc_pids[i]);
+        if (i < ap->total_crocs - 1) fprintf(f, ", ");
+    }
+    fprintf(f, "]\n");
+
+    // Array per ogni stream
+    for (int s = 0; s < num_streams; s++) {
+        fprintf(f, "[%d] (", s);
+        for (int j = 0; j < streams[s].num_crocs; j++) {
+            fprintf(f, "%d", streams[s].crocs[j].pid);
+            if (j < streams[s].num_crocs - 1) fprintf(f, ", ");
+        }
+        fprintf(f, ")\n");
+    }
+
+    fprintf(f, "\n");
+    fclose(f);
 }

@@ -7,20 +7,14 @@
 
 #define DEBUG_LOG_FILE "res/debug_log.txt"  // Nome del file di log
 
-
 typedef struct {
-    int pipe[2];
-    pid_t pid;
-} ProcessComm;
-
+    pid_t *croc_pids, *proj_pids;
+    int total_crocs, total_projs;
+} ActiveProcesses;
 
 typedef struct {
     int shared_pipe[2];     //Pipe per comunicare con la grafica
     int frog_pipe[2];       //Per la comunicazione privata con la rana
-    int total_crocs;
-    ProcessComm *croc_pipes;
-    int total_projs;
-    ProcessComm *proj_pipes;
     sem_t *sync_sem;        //Sincronizzazione processi produttori
 } IPCHandles;
 
@@ -40,11 +34,18 @@ bool init_ipc_handles(IPCHandles *ipc, char *sync_sem_name);
 
 void cleanup_ipc_handles(IPCHandles *ipc, char *sync_sem_name);
 
-int find_free_croc_pipe_slot(ProcessComm *pipes, int total);
+void kill_all(pid_t *pids, int size);
 
 void debug_log(const char *func_name, int pid, const char *error_msg, const char *log_file);
 
-int has_pending_kill(int fd);
+void log_croc_event(const char *log_file,
+                    const char *event,
+                    int stream_index,
+                    int croc_index,
+                    pid_t pid,
+                    int x,
+                    int y)
+;
 
 
 
@@ -82,9 +83,11 @@ typedef struct {
     Object obj;
     int stream_index;   //Indice in Streams
     int stream_obj_index;  //Indice nell'array di coccodrilli di uno Stream
-    int pipe_index;
+    int pid_index;
 } Message;
 
-void set_message(Message *m, int msg_type, Object *obj, int *stream_index, int *stream_objs_index, int *pipe_index);
+void set_message(Message *m, int msg_type, Object *obj, int *stream_index, 
+    int *stream_objs_index, int *pid_index)
+;
 
 #endif

@@ -4,9 +4,10 @@
 #include <sys/mman.h>
 #include <sys/stat.h>   //ftruncate
 #include <fcntl.h>      //shm_open
+#include <sys/wait.h>
 #include <stdbool.h>
-#include <poll.h>
 #include <time.h>
+#include <signal.h>
 #include "utils.h"
 
 
@@ -61,12 +62,6 @@ bool init_ipc_handles(IPCHandles *ipc, char *sync_sem_name) {
         return false;
     }
 
-    ipc->croc_pipes = malloc(sizeof(ProcessComm) * ipc->total_crocs);
-    ipc->proj_pipes = malloc(sizeof(ProcessComm) * ipc->total_projs);
-
-    for (int i = 0; i < ipc->total_crocs; i++) ipc->croc_pipes[i].pid = -1;
-    for (int i = 0; i < ipc->total_projs; i++) ipc->proj_pipes[i].pid = -1;
-
     ipc->sync_sem = init_shared_semaphore(sync_sem_name);
     if(ipc->sync_sem == NULL) {
         return false;
@@ -83,36 +78,27 @@ void cleanup_ipc_handles(IPCHandles *ipc, char *sync_sem_name) {
 
     //Chiudo le pipe
     clean_up_pipe(ipc->shared_pipe);
-    clean_up_pipe(ipc->frog_pipe);
-
-    for (int i = 0; i < ipc->total_crocs; i++) {
-        clean_up_pipe(ipc->croc_pipes[i].pipe);
-    }
-
-    for (int i = 0; i < ipc->total_projs; i++) {
-        clean_up_pipe(ipc->proj_pipes[i].pipe);
-    }
-
-    //Libero la memoria allocata
-    free(ipc->croc_pipes);
-    free(ipc->proj_pipes);    
+    clean_up_pipe(ipc->frog_pipe);   
 }
 
 
-int find_free_croc_pipe_slot(ProcessComm *pipes, int total) {
-    for (int i = 0; i < total; i++) {
-        if (pipes[i].pid == -1) return i;
-    }
-    return -1; // Nessuno slot disponibile
-}
-
-
-void set_message(Message *m, int msg_type, Object *obj, int *stream_index, int *stream_objs_index, int *pipe_index) {
+void set_message(Message *m, int msg_type, Object *obj, int *stream_index, 
+    int *stream_objs_index, int *pid_index) 
+{
     m->msg_type = msg_type;
     if(obj != NULL) m->obj = *obj;
     m->stream_index = (stream_index == NULL) ? -1 : *stream_index;
     m->stream_obj_index = (stream_objs_index == NULL) ? -1 : *stream_objs_index;
-    m->pipe_index = (pipe_index == NULL) ? -1 : *pipe_index;
+    m->pid_index = (pid_index == NULL) ? -1: *pid_index;
+}
+
+
+void kill_all(pid_t *pids, int size) {
+    for (int i = 0; i < size; i++)
+    {
+        kill(pids[i], SIGTERM);
+        waitpid(pids[i], NULL, 0);
+    }
 }
 
 
@@ -130,9 +116,33 @@ void debug_log(const char *func_name, int pid, const char *error_msg, const char
     fclose(fp);
 }
 
+void log_croc_event(const char *log_file,
+                    const char *event,
+                    int stream_index,
+                    int croc_index,
+                    pid_t pid,
+                    int x,
+                    int y)
+{
+    FILE *fp = fopen(log_file, "a");
+    if (!fp) return;
 
-int has_pending_kill(int fd) {
-    struct pollfd pfd = { .fd = fd, .events = POLLIN };
-    int ret = poll(&pfd, 1, 0); // timeout 0ms → non blocca mai
-    return (ret > 0);
+    // Timestamp (solo ora:minuto:secondo)
+    time_t now = time(NULL);
+    struct tm *tm_info = localtime(&now);
+    char time_str[9];
+    strftime(time_str, sizeof(time_str), "%H:%M:%S", tm_info);
+
+    fprintf(fp,
+            "[%s] EVENT: %s | PID=%d (caller PID=%d) | stream=%d, index=%d, pos=(%d,%d)\n",
+            time_str,
+            event,
+            pid,
+            getpid(), // Chi sta scrivendo il log
+            stream_index,
+            croc_index,
+            x,
+            y);
+
+    fclose(fp);
 }

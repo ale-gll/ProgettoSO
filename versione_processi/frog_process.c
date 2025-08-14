@@ -45,12 +45,12 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
                         frog.direction = DIR_DOWN;
                         break;
                     case KEY_LEFT: 
-                        frog.x -= (on_croc) ? FROG_WIDTH : 1; 
+                        frog.x -= 1; 
                         moved = true; 
                         frog.direction = DIR_LEFT;
                         break;
                     case KEY_RIGHT: 
-                        frog.x += (on_croc) ? FROG_WIDTH : 1; 
+                        frog.x += 1; 
                         moved = true; 
                         frog.direction = DIR_RIGHT;
                         break;

@@ -15,12 +15,12 @@
 //Definisce una corrente del fiume
 typedef struct {
     int y;  //ordinata dello stream
+    int spawn_time_interval;     // Tempo randomico di spawn
+    time_t last_spawn_time;
     int delay;
     int direction;
     int num_crocs;  //Numero di coccodrilli presenti
-    int next_croc_index;
     int num_projs;
-    int next_proj_index;
     Object *crocs;   //coccodrilli nello Stream    
     Object *projs;   //Proiettili nello Stream
 } Stream;
@@ -42,23 +42,27 @@ void update_lane(int *active_lane, int direction);
 
 bool check_burrows(Object frog, Burrow *burrows);
 
-void reset_frog(WINDOW *win, IPCHandles *ipc, pid_t *frog_pid, Object *frog, int *active_lane, bool is_scared, int win_height, int win_width);
+void reset_frog(WINDOW *win, IPCHandles *ipc, pid_t *frog_pid, Object *frog, int *active_lane, 
+    bool is_scared, int win_height, int win_width);
 
 bool check_win(Stats stats, Burrow burrows[5]);
 
 void init_streams(Stream *streams, int start_y);
 
-void free_streams(Stream *streams);
-
 int get_number_of_crocs(Stream *streams);
 
 int get_number_of_projs(Stream *streams);
 
+int get_free_pid_index(ActiveProcesses *ap, int size);
+
 void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
 
-void kill_object(int write_fd, pid_t pid);
+bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, ActiveProcesses *ap, int window_width);
+
+bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, ActiveProcesses *ap, int window_width);
 
 void game_loop(WINDOW *win, int start_y, int start_x);
 
+void log_crocs_state(const char *filename, ActiveProcesses *ap, Stream *streams, int num_streams);
 
 #endif
