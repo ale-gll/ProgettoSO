@@ -3,9 +3,15 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <semaphore.h>
+#include <signal.h>
 #include "utils.h"
 #include "frog_process.h"
 
+volatile sig_atomic_t frog_running = 1;
+
+void handle_frog_sigterm(int sig) {
+    frog_running = 0;
+}
 
 pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
 
@@ -14,7 +20,7 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
         exit(EXIT_FAILURE);
     } else if(pid == 0) //Processo figlio
     {
-        bool on_croc = false;   //Rileva se la rana si trova sopra un coccodrillo
+        signal(SIGTERM, handle_frog_sigterm);
         keypad(win, true);  
         noecho();
         cbreak();
@@ -26,7 +32,7 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
         close(ipc->shared_pipe[0]);
         close(ipc->frog_pipe[1]);
         set_nonblocking(ipc->frog_pipe[0]);    //lettura non bloccante
-        while (1)
+        while (frog_running)
         {
             bool moved = false;
             int ch = wgetch(win);   //Prendo l'input da stdscr
@@ -60,7 +66,7 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
             //Scrivo nella pipe solo se il carattere si è mosso
             if(moved){
                 Message m_out;
-                set_message(&m_out, MSG_UPDATE_POS, &frog, NULL, NULL, NULL);
+                set_message(&m_out, MSG_UPDATE_POS, &frog, NULL);
 
                 sem_wait(ipc->sync_sem);
                 if(write(ipc->shared_pipe[1], &m_out, sizeof(Message)) == -1) {
@@ -76,20 +82,13 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
             if (n > 0) {
                 if(m_in.msg_type == MSG_SET_FROG) {
                     frog = m_in.obj;
-                }
-
-                if(m_in.msg_type == MSG_TOGGLE_ON_CROC) {
-                    on_croc = !on_croc;
-                }
-
-                if (m_in.msg_type == MSG_KILL) {
-                    clean_up_pipe(ipc->shared_pipe);
-                    clean_up_pipe(ipc->frog_pipe);
-                    exit(0);
-                }                
+                }               
             }
             usleep(FROG_PROCESS_COOLDOWN);
         }
+        clean_up_pipe(ipc->shared_pipe);
+        clean_up_pipe(ipc->frog_pipe);
+        exit(0);
     }
 
     //Processo padre

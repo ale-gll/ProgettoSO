@@ -7,10 +7,13 @@
 
 #define DEBUG_LOG_FILE "res/debug_log.txt"  // Nome del file di log
 
-typedef struct {
-    pid_t *croc_pids, *proj_pids;
-    int total_crocs, total_projs;
-} ActiveProcesses;
+void debug_log(const char *func_name, int pid, const char *error_msg, const char *log_file);
+
+
+//Dimensioni delle sprite
+#define FROG_WIDTH 5
+#define FROG_CROC_HEIGHT 2  //rana e coccodrillo hanno la stessa altezza
+#define CROC_WIDTH 12
 
 typedef struct {
     int shared_pipe[2];     //Pipe per comunicare con la grafica
@@ -34,26 +37,6 @@ bool init_ipc_handles(IPCHandles *ipc, char *sync_sem_name);
 
 void cleanup_ipc_handles(IPCHandles *ipc, char *sync_sem_name);
 
-void kill_all(pid_t *pids, int size);
-
-void debug_log(const char *func_name, int pid, const char *error_msg, const char *log_file);
-
-void log_croc_event(const char *log_file,
-                    const char *event,
-                    int stream_index,
-                    int croc_index,
-                    pid_t pid,
-                    int x,
-                    int y)
-;
-
-
-
-//Dimensioni delle sprite
-#define FROG_WIDTH 5
-#define FROG_CROC_HEIGHT 2  //rana e coccodrillo hanno la stessa altezza
-#define CROC_WIDTH 12
-
 
 //Tipi di oggetti dinamici presenti in gioco
 typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE, OBJ_NONE } ObjectType;
@@ -65,8 +48,6 @@ typedef enum {
     MSG_UPDATE_POS,         //Aggiorna posizione oggetto
     MSG_FIRE,               //Spara un proiettile
     MSG_SET_FROG,           //Imposta i parametri della rana
-    MSG_TOGGLE_ON_CROC,       //Imposta la rana sul coccodrillo
-    MSG_KILL                //Uccide il processo
 } MessageType;
 
 //Info di un oggetto dinamico
@@ -81,13 +62,10 @@ typedef struct {
 typedef struct {
     int msg_type;
     Object obj;
-    int stream_index;   //Indice in Streams
-    int stream_obj_index;  //Indice nell'array di coccodrilli di uno Stream
-    int pid_index;
+    int stream_index;      //Indice in Streams (coccodrilli, proiettili, granate)
 } Message;
 
-void set_message(Message *m, int msg_type, Object *obj, int *stream_index, 
-    int *stream_objs_index, int *pid_index)
-;
+void set_message(Message *m, int msg_type, Object *obj, int *stream_index);
+
 
 #endif

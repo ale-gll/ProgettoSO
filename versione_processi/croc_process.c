@@ -5,47 +5,46 @@
 #include <stdio.h>
 #include <time.h>
 #include <signal.h>
+#include <errno.h>
+#include <string.h>
 #include "utils.h"
 #include "croc_process.h"
 
 /* volatile -> Evita ottimizzazione che ignorano modifiche asincrone (con signal)
     sig_atomic_t -> Garantisce accesso atomico anche durante l'interruzione di segnali */
-volatile sig_atomic_t running = 1;
+volatile sig_atomic_t croc_running = 1;
 
 
-void handle_sigterm(int sig){
-    running = 0;
+void handle_croc_sigterm(int sig){
+    croc_running = 0;
 }
 
-
-pid_t croc_process(IPCHandles *ipc, Object croc, int stream_index, int stream_crocs_index, int delay, int pid_index) 
+pid_t croc_process(IPCHandles *ipc, Object croc, int stream_index, int delay) 
 {
     pid_t pid = fork();
     if(pid == -1) {
         exit(EXIT_FAILURE);
     } else if(pid == 0) //Processo figlio
     {
-        signal(SIGTERM, handle_sigterm);
+        signal(SIGTERM, handle_croc_sigterm);
 
         int dir;
         dir = (croc.direction == DIR_LEFT) ? (-1) : 1;
         
         croc.pid = getpid();
 
-        close(ipc->shared_pipe[0]);     // Lato lettura
-        clean_up_pipe(ipc->frog_pipe);   
 
-        log_croc_event("res/check_create", "First message", stream_index, stream_crocs_index, 
-            getpid(), croc.x, croc.y);
-            
-        while(running) {
+        close(ipc->shared_pipe[0]);     // Lato lettura
+        clean_up_pipe(ipc->frog_pipe);          
+        while(croc_running) {
             Message m_out, m_in;
             croc.x += dir;
-
-            set_message(&m_out, MSG_UPDATE_POS, &croc, &stream_index, &stream_crocs_index, &pid_index);           
+            
+            set_message(&m_out, MSG_UPDATE_POS, &croc, &stream_index);           
             sem_wait(ipc->sync_sem);
-            if (write(ipc->shared_pipe[1], &m_out, sizeof(Message)) == -1) {
-                // Scrittura fallita, ma comunque rilascio il semaforo
+            ssize_t w = write(ipc->shared_pipe[1], &m_out, sizeof(m_out));
+            if(w == -1) {
+                // Errore in scrittura
             }
             sem_post(ipc->sync_sem);
             usleep(delay);

@@ -73,6 +73,8 @@ void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_
     wrefresh(stats_win);
 }
 
+
+/* Funzioni di disegno*/
 void draw_frog(WINDOW *win, Object frog, bool scared) {
     if(frog.type != OBJ_FROG) return;
 
@@ -124,7 +126,6 @@ void draw_croc(WINDOW *win, Object croc) {
 
     wattroff(win, COLOR_PAIR(CROC_COLOR_PAIR));
 }
-
 
 
 void draw_walkable(WINDOW *win, int y, int x) {

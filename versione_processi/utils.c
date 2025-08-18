@@ -82,23 +82,11 @@ void cleanup_ipc_handles(IPCHandles *ipc, char *sync_sem_name) {
 }
 
 
-void set_message(Message *m, int msg_type, Object *obj, int *stream_index, 
-    int *stream_objs_index, int *pid_index) 
+void set_message(Message *m, int msg_type, Object *obj, int *stream_index) 
 {
     m->msg_type = msg_type;
     if(obj != NULL) m->obj = *obj;
     m->stream_index = (stream_index == NULL) ? -1 : *stream_index;
-    m->stream_obj_index = (stream_objs_index == NULL) ? -1 : *stream_objs_index;
-    m->pid_index = (pid_index == NULL) ? -1: *pid_index;
-}
-
-
-void kill_all(pid_t *pids, int size) {
-    for (int i = 0; i < size; i++)
-    {
-        kill(pids[i], SIGTERM);
-        waitpid(pids[i], NULL, 0);
-    }
 }
 
 
@@ -116,33 +104,4 @@ void debug_log(const char *func_name, int pid, const char *error_msg, const char
     fclose(fp);
 }
 
-void log_croc_event(const char *log_file,
-                    const char *event,
-                    int stream_index,
-                    int croc_index,
-                    pid_t pid,
-                    int x,
-                    int y)
-{
-    FILE *fp = fopen(log_file, "a");
-    if (!fp) return;
 
-    // Timestamp (solo ora:minuto:secondo)
-    time_t now = time(NULL);
-    struct tm *tm_info = localtime(&now);
-    char time_str[9];
-    strftime(time_str, sizeof(time_str), "%H:%M:%S", tm_info);
-
-    fprintf(fp,
-            "[%s] EVENT: %s | PID=%d (caller PID=%d) | stream=%d, index=%d, pos=(%d,%d)\n",
-            time_str,
-            event,
-            pid,
-            getpid(), // Chi sta scrivendo il log
-            stream_index,
-            croc_index,
-            x,
-            y);
-
-    fclose(fp);
-}
