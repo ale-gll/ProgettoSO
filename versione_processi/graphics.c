@@ -182,8 +182,7 @@ void remove_frog(WINDOW *win, int y, int x, bool on_grass) {
 }
 
 void remove_stats(WINDOW *win) {
-    int width = getmaxx(win);
-    mvwhline(win, 0, 0, ' ', width); //Cancella tutta la riga
+    mvwhline(win, 1, 0, ' ', 70);
 }
 
 void remove_croc(WINDOW *win, int y, int x) {

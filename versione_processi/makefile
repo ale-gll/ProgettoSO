@@ -22,19 +22,16 @@ menu.o: menu.c menu.h graphics.h
 utils.o: utils.c utils.h
 	$(CC) -c $< -o $@
 
-frog_process.o: frog_process.c frog_process.h  
+frog_process.o: frog_process.c frog_process.h utils.h
 	$(CC) -c $< -o $@
 
-game.o: game.c game.h graphics.h utils.h frog_process.h  croc_process.h  
+game.o: game.c game.h graphics.h frog_process.h  croc_process.h  
 	$(CC) -c $< -o $@
 
 graphics.o: graphics.c graphics.h  
 	$(CC) -c $< -o $@
 
- 
-	$(CC) -c $< -o $@
-
-croc_process.o: croc_process.c croc_process.h  
+croc_process.o: croc_process.c croc_process.h utils.h
 	$(CC) -c $< -o $@
 
 clean:

@@ -20,6 +20,7 @@
 #define NUM_STREAMS 8
 #define BURROW_WIDTH 8
 #define NUM_BURROWS 5
+#define TIME_PER_ROUND 50 
 
 
 //Sprite dei personaggi (dichiarazioni)
@@ -41,30 +42,30 @@ typedef struct {
 } Stats;
 
 
-//Inizializza i colori usati nel gioco
+// Inizializza i colori usati nel gioco
 void init_game_colors();
 
-//Inizializza il campo da gioco
+// Inizializza il campo da gioco
 void init_playground(WINDOW *win, WINDOW *stats_win, int win_height, int win_width, 
     Object frog, Burrow burrows[5], Stats stats)
 ;
 
-//Disegna l'oggetto rana
+// Disegna l'oggetto rana
 void draw_frog(WINDOW *win, Object frog, bool scared);
 
-//Disegna l'oggetto coccodrillo
+// Disegna l'oggetto coccodrillo
 void draw_croc(WINDOW *win, Object croc);
 
-//Disegna la sponda dell'argine o il marciapiede
+// Disegna la sponda dell'argine o il marciapiede
 void draw_walkable(WINDOW *win, int y, int x);
 
-//Disegna le tane
+// Disegna le tane
 void draw_burrows(WINDOW *win, int y, int x);
 
-//Disegna le statistiche di gioco
+// Disegna le statistiche di gioco
 void draw_stats(WINDOW *win, Stats stats);
 
-//Cancella la rana
+// Cancella la rana
 void remove_frog(WINDOW *win, int y, int x, bool on_grass);
 
 void remove_stats(WINDOW *win);

@@ -86,6 +86,7 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
             }
             usleep(FROG_PROCESS_COOLDOWN);
         }
+
         clean_up_pipe(ipc->shared_pipe);
         clean_up_pipe(ipc->frog_pipe);
         exit(0);

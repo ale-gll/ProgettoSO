@@ -6,7 +6,6 @@
 
 #define FROG_START_Y(win_height) ((win_height) - FROG_CROC_HEIGHT)
 #define FROG_START_X(win_width)  (((win_width) - 10) / 2)
-#define TIME_PER_ROUND 40 
 #define MAX_CROCS_PER_STREAM 3
 #define MAX_PROJ_PER_STREAM 2
 #define OBJ_DUMMY (Object){ .pid = -1, .y = -1, .x = -1, .type = OBJ_NONE, .direction = DIR_UNKNOWN }
@@ -40,15 +39,19 @@ bool is_on_grass(int lane);
 
 bool is_out_of_screen(int win_width, int obj_x, int obj_width);
 
+// Controlla se un elemento è completamente fuori schermo
 bool is_fully_out_of_screen(int win_width, int obj_x, int obj_width);
 
+// Inizializza la posizione iniziale della rana
 Object init_frog(int win_height, int win_width);
 
+// Inizializza le tane 
 void init_burrows(Burrow burrows[5]);
 
+// Inizializza le statistiche del gioco
 void init_stats(Stats *stats);
 
-void update_lane(int *active_lane, int direction);
+int update_lane(int active_lane, int direction);
 
 bool check_burrows(Object frog, Burrow *burrows);
 
@@ -58,10 +61,12 @@ void init_streams(Stream *streams, int start_y);
 
 bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int window_width);
 
-void kill_all(WINDOW *win, Stream *streams);
+void clean_all_stream_objects(WINDOW *win, Stream *streams);
 
 void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
 
 void game_loop(WINDOW *win, int start_y, int start_x);
 
+
+void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
 #endif

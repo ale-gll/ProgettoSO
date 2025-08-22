@@ -13,7 +13,7 @@
 #include "game.h"
 
 void init_streams(Stream *streams, int start_y) {
-    int delay[] = {160000, 200000};
+    int delay[] = {180000, 220000};
     int direction = (rand() % 2 == 0) ? DIR_LEFT : DIR_RIGHT;
 
     for (int i = 0; i < NUM_STREAMS; i++) {
@@ -51,6 +51,11 @@ bool is_fully_out_of_screen(int win_width, int obj_x, int obj_width) {
 }
 
 
+bool is_on_burrow(int active_lane, int dir) {
+    return active_lane == (NUM_STREAMS+1) && dir == DIR_UP;
+}
+
+
 bool is_on_grass(int lane) {
     return !(lane >= 1 && lane <= NUM_STREAMS);
 }
@@ -84,14 +89,18 @@ Object init_frog(int win_height, int win_width) {
     return frog;
 }
 
-
 void init_burrows(Burrow burrows[5]) {
     
     int burrow_distance = 5, burrow_start_x = 5;
 
+    burrows[0].start_x = 5;
+    burrows[1].start_x = 18;
+    burrows[2].start_x = 31;
+    burrows[3].start_x = 44;
+    burrows[4].start_x = 57;
+
     for(int i = 0; i < NUM_BURROWS; i++) {
         burrows[i].is_occupied = false;     //tana non occupata
-        burrows[i].start_x = burrow_start_x + i * (burrow_distance + BURROW_WIDTH);
         burrows[i].end_x = burrows[i].start_x + BURROW_WIDTH;
     }
 }
@@ -104,17 +113,19 @@ void init_stats(Stats *stats) {
 }
 
 
-void update_lane(int *active_lane, int direction) {
+int update_lane(int active_lane, int direction) {
     switch (direction) {
         case DIR_UP: 
-            if (*active_lane < NUM_STREAMS + 1) (*active_lane)++; 
+            active_lane += (active_lane < NUM_STREAMS+1) ? 1 : 0; 
             break;
         case DIR_DOWN: 
-            if (*active_lane > 0) (*active_lane)--; 
+            active_lane -= (active_lane > 0) ? 1 : 0;
             break;
         default:
             break;
     }
+
+    return active_lane;
 }
 
 
@@ -284,46 +295,55 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             switch (m.obj.type)
             {
             case OBJ_FROG:
+                Object new_frog = m.obj;
+
                 if(m.msg_type == MSG_UPDATE_POS) 
                 {
                     // 1. Rana esegue una mossa non valida
-                    if( (active_lane == 0 && m.obj.direction == DIR_DOWN)
-                    || is_out_of_screen(win_width, m.obj.x, FROG_WIDTH) ) {
+                    if( (active_lane == 0 && new_frog.direction == DIR_DOWN)
+                    || is_out_of_screen(win_width, new_frog.x, FROG_WIDTH) ) {
                         Message reset_msg;
                         set_message(&reset_msg, MSG_SET_FROG, &frog, NULL);
                         if(write(ipc.frog_pipe[1], &reset_msg, sizeof(Message)) == -1) flag = false;
                     }
 
                     // 2. Rana cerca di salire oltre l'argine (tane)
-                    else if(active_lane == (NUM_STREAMS+1) && m.obj.direction == DIR_UP) {
-                        if (check_burrows(m.obj, burrows)) {
-                            draw_frog(win, m.obj, is_scared);
+                    else if(is_on_burrow(active_lane, new_frog.direction)) 
+                    {
+                        if (check_burrows(new_frog, burrows)) {
+                            draw_frog(win, new_frog, is_scared);
+                            wrefresh(win);
                         } else {
                             has_lost_manche = true;
                         }
                         reset = true;   //Reset per nuova manche
                     }
-                    
-                    // 3. Rana si muove in orizzontale su marciapiede/argine o nel fiume
                     else {
-                        remove_frog(win, frog.y, frog.x, on_grass); //Rimuovo vecchia rana
-                        update_lane(&active_lane, m.obj.direction); //Aggiorno active_lane
-                        on_grass = is_on_grass(active_lane);
 
-                        draw_frog(win, m.obj, is_scared);                        
-                        frog = m.obj;
+                        int next_active_lane = update_lane(active_lane, new_frog.direction);
 
-                        // Se la rana è nel fiume deve stare sopra un coccodrillo
-                        if(active_lane > 0 && active_lane < NUM_STREAMS+1) {
-                            on_croc = is_on_croc(&streams[active_lane-1], frog, &hovered_croc);
+                        // Se la rana è nel fiume deve essere sopra un coccodrillo
+                        if(is_on_grass(next_active_lane)) {
+                            remove_frog(win, frog.y, frog.x, on_grass);
+                            active_lane = next_active_lane;
+                            on_grass = true;
+                            draw_frog(win, new_frog, is_scared);
+                            frog = new_frog;
+                            hovered_croc = -1;
+                        }
+                        else {
+                            on_croc = is_on_croc(&streams[next_active_lane-1], new_frog, &hovered_croc);
 
-                            if(!on_croc){
+                            if (on_croc) {
+                                remove_frog(win, frog.y, frog.x, on_grass);
+                                active_lane = next_active_lane;
+                                on_grass = false;
+                                draw_frog(win, new_frog, is_scared);
+                                frog = new_frog;
+                            } else {
                                 has_lost_manche = true;
                                 reset = true;
                             }
-                        } else if (active_lane == 0 || active_lane == NUM_STREAMS+1) {
-                            on_croc = false;
-                            hovered_croc = -1;
                         }
                     }
                 }
@@ -397,34 +417,14 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
         // Reset della manche 
         if(reset) {
-            
-            // Reset rana
+            // Elimino tutti gli elementi del fiume
+            clean_all_stream_objects(win, streams);     // Esegue wait()
+
+            // Eliminazione e kill della rana
             remove_frog(win, frog.y, frog.x, on_grass);
             kill(frog_pid, SIGTERM);
             waitpid(frog_pid, NULL, 0);
-
-            close(ipc.shared_pipe[0]);
-            close(ipc.frog_pipe[1]);
-
-            if (pipe(ipc.shared_pipe) == -1 || pipe(ipc.frog_pipe) == -1) return;
-            set_nonblocking(ipc.shared_pipe[0]);
-
-            active_lane = 0;
-            on_grass = true;
-            hovered_croc = -1;
-            on_croc = false;
-            is_scared = (stats.lives <= 2);
-
-            frog = init_frog(win_height, win_width);
-            frog_pid = frog_process(win, &ipc, frog);
-            close(ipc.frog_pipe[0]);
-            draw_frog(win, frog, is_scared);
-
-
-            //Reset coccodrilli
-            kill_all(win, streams);
-            init_streams(streams, win_height-4);
-            spawn_initial_crocs(streams, &ipc, win_width);
+            wrefresh(win);
 
             remove_stats(stats_win);
             // Aggiorno le statistiche
@@ -433,24 +433,46 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             }
             stats.time = TIME_PER_ROUND;
             
-            // Aggiorna punteggio
+            // Aggiorna punteggio*************
 
             draw_stats(stats_win, stats);
+
+            // Chiudo le risorse
+            clean_up_pipe(ipc.shared_pipe);
+            clean_up_pipe(ipc.frog_pipe);
+
+            // Ricreo le pipe
+            if (pipe(ipc.shared_pipe) == -1 || pipe(ipc.frog_pipe) == -1) {
+                flag = false;
+            }
+            set_nonblocking(ipc.shared_pipe[0]);
+
+            active_lane = 0;
+            on_grass = true;
+            hovered_croc = -1;
+            on_croc = false;
+            is_scared = (stats.lives <= 2);
+
+            // Ricreo il processo rana
+            frog = init_frog(win_height, win_width);
+            frog_pid = frog_process(win, &ipc, frog);
+            if(frog_pid == -1) {
+                flag = false;
+            }
+            close(ipc.frog_pipe[0]);
+            draw_frog(win, frog, is_scared);
+
+            // Ricreo i coccodrilli
+            init_streams(streams, win_height-4);
+            spawn_initial_crocs(streams, &ipc, win_width);
 
             has_lost_manche = false;
             reset = false;
         }
 
-
-
-
-
-
-
-
         //Aggiorno il tempo rimanente
         time_t now = time(NULL);
-        if(now - last_update_time  > 1) {
+        if(now - last_update_time  >= 1) {
             stats.time--;
             remove_stats(stats_win);
             draw_stats(stats_win, stats);
@@ -491,10 +513,12 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
     /* Chiudo le risorse utilizzate e termino i processi */
 
-    kill(frog_pid, SIGTERM);
-    waitpid(frog_pid, NULL, 0);
+    if(frog_pid > 0){
+        kill(frog_pid, SIGTERM);
+        waitpid(frog_pid, NULL, 0);
+    }
 
-    kill_all(win, streams);
+    clean_all_stream_objects(win, streams);
 
     cleanup_ipc_handles(&ipc, sync_sem_name);
 
@@ -503,7 +527,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 }
 
 
-void kill_all(WINDOW *win, Stream *streams) {
+void clean_all_stream_objects(WINDOW *win, Stream *streams) {
     for (int i = 0; i < NUM_STREAMS; i++) {
         ObjectNode *curr = streams[i].crocs;
         while (curr) {
@@ -522,4 +546,5 @@ void kill_all(WINDOW *win, Stream *streams) {
         streams[i].crocs = NULL; // Lista vuota dopo la rimozione
         streams[i].croc_count = 0;
     }
+    wrefresh(win);
 }
