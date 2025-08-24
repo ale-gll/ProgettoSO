@@ -2,11 +2,7 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <sys/types.h>
-#include <stdio.h>
-#include <time.h>
 #include <signal.h>
-#include <errno.h>
-#include <string.h>
 #include "utils.h"
 #include "croc_process.h"
 
@@ -37,7 +33,7 @@ pid_t croc_process(IPCHandles *ipc, Object croc, int stream_index, int delay)
         close(ipc->shared_pipe[0]);     // Lato lettura
         clean_up_pipe(ipc->frog_pipe);          
         while(croc_running) {
-            Message m_out, m_in;
+            Message m_out;
             croc.x += dir;
             
             set_message(&m_out, MSG_UPDATE_POS, &croc, &stream_index);           

@@ -13,6 +13,7 @@
 
 typedef struct ObjectNode {
     Object data;
+    bool on_grass;
     struct ObjectNode *next;
 } ObjectNode;
 
@@ -32,6 +33,7 @@ typedef struct {
 
     ObjectNode *crocs;  // lista dei coccodrilli nello Stream    
     ObjectNode *projs;  // lista dei proiettili nello Stream
+    ObjectNode *granades;   // lista di granate nello Stream
 } Stream;
 
 
@@ -61,7 +63,12 @@ void init_streams(Stream *streams, int start_y);
 
 bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int window_width);
 
+bool spawn_granade(IPCHandles *ipc, int start_x, int start_y, 
+    ObjectDirection dir, int active_lane, ObjectNode **active_granades);
+
 void clean_all_stream_objects(WINDOW *win, Stream *streams);
+
+void clean_all_granades(WINDOW *win, ObjectNode **granades);
 
 void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
 

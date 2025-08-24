@@ -8,13 +8,14 @@
 #define COLOR_BROWN 11
 #define FROG_COLOR_PAIR 1       //ID colore rana
 #define CROC_COLOR_PAIR 2       //ID colore coccodrilli
-#define SIDEWALK_COLOR_PAIR 3           //ID colore marciapiede
+#define WALKABLE_COLOR_PAIR 3           //ID colore marciapiede
 #define START_MENU_COLOR_PAIR 4   //ID colore titolo
 #define RIVER_COLOR_PAIR 5  //ID colore fiume
 #define BURROW_COLOR_PAIR 6
 #define BLACK_COLOR_PAIR 7
 #define SCARED_FROG_COLOR_PAIR 8
 #define STATS_COLOR_PAIR 9
+#define GRANADE_COLOR_PAIR 12
 
 
 #define NUM_STREAMS 8
@@ -50,28 +51,32 @@ void init_playground(WINDOW *win, WINDOW *stats_win, int win_height, int win_wid
     Object frog, Burrow burrows[5], Stats stats)
 ;
 
-// Disegna l'oggetto rana
+/* Funzioni per il disegno degli oggetti dinamici */
+
 void draw_frog(WINDOW *win, Object frog, bool scared);
 
-// Disegna l'oggetto coccodrillo
 void draw_croc(WINDOW *win, Object croc);
 
-// Disegna la sponda dell'argine o il marciapiede
 void draw_walkable(WINDOW *win, int y, int x);
 
-// Disegna le tane
 void draw_burrows(WINDOW *win, int y, int x);
 
-// Disegna le statistiche di gioco
 void draw_stats(WINDOW *win, Stats stats);
 
-// Cancella la rana
+void draw_granade(WINDOW *win, Object granade);
+
+
+/* Funzioni per la cancellazione dalla grafica degli oggetti dinamici */
+
 void remove_frog(WINDOW *win, int y, int x, bool on_grass);
 
 void remove_stats(WINDOW *win);
 
 void remove_croc(WINDOW *win, int y, int x);
 
-//Rimuove completamente una finestra
+void remove_granade(WINDOW *win, int y, int x, bool on_grass);
+
+
+// Rimuove completamente una finestra
 void close_window(WINDOW *win);
 #endif

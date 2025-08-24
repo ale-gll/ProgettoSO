@@ -10,6 +10,7 @@
 #include "utils.h"
 #include "frog_process.h"
 #include "croc_process.h"
+#include "projectile_process.h"
 #include "game.h"
 
 void init_streams(Stream *streams, int start_y) {
@@ -88,6 +89,17 @@ Object init_frog(int win_height, int win_width) {
     frog.x = FROG_START_X(win_width);
     return frog;
 }
+
+
+void set_frog(int write_fd, Object frog, bool *flag) {
+    Message reset;
+
+    set_message(&reset, MSG_SET_FROG, &frog, NULL);
+    if( write(write_fd, &reset, sizeof(Message)) == -1 ) {
+        *flag = false;
+    }
+}
+
 
 void init_burrows(Burrow burrows[5]) {
     
@@ -231,6 +243,51 @@ bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int wi
 }
 
 
+bool spawn_granade(IPCHandles *ipc, int start_x, int start_y, 
+    ObjectDirection dir, int active_lane, ObjectNode **active_granades) {
+
+    ObjectNode *new_node = malloc(sizeof(ObjectNode));
+    if(!new_node) return false;
+
+    // Imposta dati granata
+    new_node->data.direction = dir;
+    new_node->data.type = OBJ_GRANADE;
+    new_node->data.y = start_y;
+    new_node->data.x = start_x;
+
+    /**
+     * Se la rana è sull'erba -> stream_index = -1
+     * Se è nel fiume -> stream_index = active_lane 
+    */
+    bool on_grass = is_on_grass(active_lane);
+    int stream_index;
+    
+    stream_index = (on_grass) ? -1 : active_lane;
+    new_node->on_grass = on_grass;
+
+    // Avvia il processo 
+    pid_t pid = proj_process(ipc, new_node->data, stream_index);
+    if(pid == -1) {
+        free(new_node);
+        return false;
+    }
+
+    new_node->data.pid = pid;
+    new_node->next = NULL;
+
+    // Inserisci in coda alla lista delle granate attive 
+    if(*active_granades == NULL) {
+        *active_granades = new_node;
+    } else {
+        ObjectNode *curr = *active_granades;
+        while(curr->next) curr = curr->next;
+        curr->next = new_node;
+    }
+
+    return true;
+}
+
+
 void game_loop(WINDOW *win, int start_y, int start_x) {
     srand(time(NULL));
 
@@ -279,6 +336,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     bool on_croc = false;
     int hovered_croc = -1;  //pid del coccodrillo dove si trova la rana
     time_t last_update_time = time(NULL);
+    ObjectNode *active_granades = NULL;
 
 
     // Chiudo i file descriptor che non uso
@@ -291,20 +349,18 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
         ssize_t bytes = read(ipc.shared_pipe[0], &m, sizeof m);
         if(bytes > 0) {
-            
             switch (m.obj.type)
             {
             case OBJ_FROG:
                 Object new_frog = m.obj;
 
+                // La rana si muove nella mappa
                 if(m.msg_type == MSG_UPDATE_POS) 
                 {
                     // 1. Rana esegue una mossa non valida
                     if( (active_lane == 0 && new_frog.direction == DIR_DOWN)
                     || is_out_of_screen(win_width, new_frog.x, FROG_WIDTH) ) {
-                        Message reset_msg;
-                        set_message(&reset_msg, MSG_SET_FROG, &frog, NULL);
-                        if(write(ipc.frog_pipe[1], &reset_msg, sizeof(Message)) == -1) flag = false;
+                        set_frog(ipc.frog_pipe[1], frog, &flag);
                     }
 
                     // 2. Rana cerca di salire oltre l'argine (tane)
@@ -347,6 +403,15 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         }
                     }
                 }
+            
+                // La rana spara dei proiettili
+                if(m.msg_type == MSG_FIRE) {
+                    int y_granade = frog.y + 1;
+                    // Spawn granata sx e dx
+                    flag &= spawn_granade(&ipc, frog.x-1, y_granade, DIR_LEFT, active_lane, &active_granades);
+                    flag &= spawn_granade(&ipc, (frog.x + FROG_WIDTH +1), y_granade, DIR_RIGHT, active_lane, &active_granades);
+                }
+
             break;
         
             case OBJ_CROC:
@@ -389,25 +454,58 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                             curr->data = m.obj;
 
                             // Se la rana è sopra questo coccodrillo
-                            if(hovered_croc == m.obj.pid && on_croc) {
+                            if( hovered_croc == m.obj.pid && on_croc ) 
+                            {
                                 // Aggiorno grafica
                                 remove_frog(win, frog.y, frog.x, on_grass);
                                 frog.x += (s->direction == DIR_LEFT) ? -1 : 1;
                                 draw_frog(win, frog, is_scared);
 
                                 // Invio aggiornamento al processo rana
-                                Message frog_update;
-                                set_message(&frog_update, MSG_SET_FROG, &frog, NULL);
-                                if (write(ipc.frog_pipe[1], &frog_update, sizeof(frog_update)) == -1) {
-                                    flag = false;
-                                }                                
+                                set_frog(ipc.frog_pipe[1], frog, &flag);                       
                             }
                         }
                     }
                 }
             break;
 
-            
+            case OBJ_GRANADE:
+                if(m.msg_type == MSG_UPDATE_POS) {
+                    
+                    // Cero l'oggetto nella lista di granate
+                    ObjectNode *prev = NULL;
+                    ObjectNode *curr = active_granades;
+
+                    while (curr && curr->data.pid != m.obj.pid) {
+                        prev = curr;
+                        curr = curr->next;
+                    }
+
+                    // Aggiorno la sua posizione
+                    if(curr) {
+                        if(is_fully_out_of_screen(win_width, curr->data.x, 1)) {
+                            // Rimuovo dal rendering 
+                            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+
+                            // Uccido il processo 
+                            kill(curr->data.pid, SIGTERM);
+                            waitpid(curr->data.pid, NULL, 0);
+
+                            // Rimuovo dalla lista di granate
+                            if(prev) prev->next = curr->next;
+                            else active_granades = curr->next;
+
+                            // Libero la memoria
+                            free(curr);
+                        } 
+                        else {
+                            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+                            draw_granade(win, m.obj);
+                            curr->data = m.obj;
+                        }
+                    }                    
+                }
+                break;
                             
             default:
                 break;
@@ -419,6 +517,8 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
         if(reset) {
             // Elimino tutti gli elementi del fiume
             clean_all_stream_objects(win, streams);     // Esegue wait()
+            
+            clean_all_granades(win, &active_granades);
 
             // Eliminazione e kill della rana
             remove_frog(win, frog.y, frog.x, on_grass);
@@ -519,6 +619,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     }
 
     clean_all_stream_objects(win, streams);
+    clean_all_granades(win, &active_granades);
 
     cleanup_ipc_handles(&ipc, sync_sem_name);
 
@@ -547,4 +648,24 @@ void clean_all_stream_objects(WINDOW *win, Stream *streams) {
         streams[i].croc_count = 0;
     }
     wrefresh(win);
+}
+
+void clean_all_granades(WINDOW *win, ObjectNode **granades) {
+    ObjectNode *curr = *granades;
+
+    while (curr) {
+        // Termina il processo e cancella dalla grafica
+        if (curr->data.pid > 0) {
+            kill(curr->data.pid, SIGTERM);
+            waitpid(curr->data.pid, NULL, 0);
+            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+        }
+
+        // Passa al nodo successivo e libera il corrente
+        ObjectNode *tmp = curr;
+        curr = curr->next;
+        free(tmp);
+    }
+
+    *granades = NULL;
 }

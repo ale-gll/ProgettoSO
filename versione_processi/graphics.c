@@ -42,21 +42,23 @@ char *croc_sprite_dx[] = {
 };
 
 
+// Inizializza i colori del gioco
 void init_game_colors() {
     init_color(COLOR_BROWN, 245, 222, 179);
-    
+
     //Inizializzo le coppie colore
     init_pair(FROG_COLOR_PAIR, COLOR_BLACK, COLOR_MAGENTA);    //Rana
     init_pair(CROC_COLOR_PAIR, COLOR_BLACK, COLOR_CYAN);   //Coccodrilli
-    init_pair(SIDEWALK_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Marciapiede, argine
+    init_pair(WALKABLE_COLOR_PAIR, COLOR_BLACK, COLOR_GREEN);   //Marciapiede, argine
     init_pair(START_MENU_COLOR_PAIR, COLOR_GREEN, COLOR_BLACK); //Testo del menu
     init_pair(RIVER_COLOR_PAIR, COLOR_BLACK, COLOR_BLUE);   //Fiume
     init_pair(BURROW_COLOR_PAIR, COLOR_BLACK, COLOR_BROWN); //Tana
-    init_pair(BLACK_COLOR_PAIR, COLOR_BLACK, COLOR_BLACK);
     init_pair(SCARED_FROG_COLOR_PAIR, COLOR_BLACK, COLOR_RED);    //Rana spaventata
     init_pair(STATS_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);  //Statistiche
+    init_pair(GRANADE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
 }
 
+// Inizializza la grafica del playground
 void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_width, 
     Object frog, Burrow burrows[5], Stats stats) 
 {
@@ -75,6 +77,7 @@ void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_
 
 
 /* Funzioni di disegno*/
+
 void draw_frog(WINDOW *win, Object frog, bool scared) {
     if(frog.type != OBJ_FROG) return;
 
@@ -127,12 +130,21 @@ void draw_croc(WINDOW *win, Object croc) {
     wattroff(win, COLOR_PAIR(CROC_COLOR_PAIR));
 }
 
+void draw_granade(WINDOW *win, Object granade) {
+    wattron(win, COLOR_PAIR(GRANADE_COLOR_PAIR));
+    mvwprintw(win, granade.y, granade.x, "O");
+    wattroff(win, COLOR_PAIR(GRANADE_COLOR_PAIR));
+}
+
+void draw_enemy_projectile(WINDOW *win, Object proj) {
+    char *sprite = "()";
+}
 
 void draw_walkable(WINDOW *win, int y, int x) {
     for(int i = 0; i < FROG_CROC_HEIGHT; i++) {
-        wattron(win, COLOR_PAIR(SIDEWALK_COLOR_PAIR));
+        wattron(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
         mvwprintw(win, y + i, x, "%s", walkable_sprite[i]);
-        wattroff(win, COLOR_PAIR(SIDEWALK_COLOR_PAIR));
+        wattroff(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
     }
 }
 
@@ -159,6 +171,9 @@ void draw_stats(WINDOW *win, Stats stats) {
     wattroff(win, COLOR_PAIR(STATS_COLOR_PAIR));
 }
 
+
+/* Funzioni di cancellazione */
+
 void remove_frog(WINDOW *win, int y, int x, bool on_grass) { 
     char *grass[] = {
         "*****",
@@ -172,9 +187,9 @@ void remove_frog(WINDOW *win, int y, int x, bool on_grass) {
     
     for (int i = 0; i < FROG_CROC_HEIGHT; i++) {
         if (on_grass) {
-            wattron(win, COLOR_PAIR(SIDEWALK_COLOR_PAIR));
+            wattron(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
             mvwprintw(win, y + i, x, "%s", grass[i]); 
-            wattroff(win, COLOR_PAIR(SIDEWALK_COLOR_PAIR));
+            wattroff(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
         } else {
             mvwprintw(win, y + i, x, "%s", empty[i]);
         }
@@ -204,10 +219,22 @@ void remove_croc(WINDOW *win, int y, int x) {
         }
 
         if (len > 0) {
-            mvwaddnstr(win, y + i, start, "           ", len); // "           " deve avere >= CROC_WIDTH spazi
+            // "           " deve avere >= CROC_WIDTH spazi
+            mvwaddnstr(win, y + i, start, "           ", len);
         }
     }
 }
+
+void remove_granade(WINDOW *win, int y, int x, bool on_grass) {
+    if(!on_grass)
+        mvwprintw(win, y, x, " ");
+    else {
+        wattron(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
+        mvwprintw(win, y, x, "*");
+        wattroff(win, COLOR_PAIR(WALKABLE_COLOR_PAIR));
+    }
+}
+
 
 void close_window(WINDOW *win) {
     if (win != NULL) {

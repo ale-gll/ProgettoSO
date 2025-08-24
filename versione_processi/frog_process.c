@@ -60,6 +60,17 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
                         moved = true; 
                         frog.direction = DIR_RIGHT;
                         break;
+                    case (int) ' ':
+                    {
+                        Message m; 
+                        set_message(&m, MSG_FIRE, &frog, NULL);
+                        sem_wait(ipc->sync_sem);
+                        if(write(ipc->shared_pipe[1], &m, sizeof(Message)) == -1) {
+                            // Errore gestito silenziosamente
+                        }
+                        sem_post(ipc->sync_sem);
+                        break;
+                    }
                 }
             }
 
