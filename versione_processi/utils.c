@@ -105,3 +105,35 @@ void debug_log(const char *func_name, int pid, const char *error_msg, const char
 }
 
 
+/**
+ * Funzioni per la gestione di ObjectNode
+ */
+
+ObjectNode *find_node_by_pid(ObjectNode *head, pid_t pid) {
+    ObjectNode *curr = head;
+    while (curr && curr->data.pid != pid) {
+        curr = curr->next;
+    }
+    return curr;
+}
+
+
+void remove_and_kill_node(ObjectNode **head, ObjectNode *node) {
+     if (!node) return;
+
+    // Kill processo
+    kill(node->data.pid, SIGTERM);
+    waitpid(node->data.pid, NULL, 0);
+
+    // Unlink dalla lista
+    if (node->prev)
+        node->prev->next = node->next;
+    else
+        *head = node->next;  // era la testa
+
+    if (node->next)
+        node->next->prev = node->prev;
+
+    // Free nodo
+    free(node);
+}

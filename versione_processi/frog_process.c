@@ -36,6 +36,15 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
         {
             bool moved = false;
             int ch = wgetch(win);   //Prendo l'input da stdscr
+            
+            // Controllo se arriva un messaggio dal processo principale
+            Message m_in;
+            ssize_t n = read(ipc->frog_pipe[0], &m_in, sizeof(Message));
+            if (n > 0) {
+                if(m_in.msg_type == MSG_SET_FROG) {
+                    frog = m_in.obj;
+                }               
+            }
 
             if(ch != ERR) {
                 switch (ch)
@@ -86,15 +95,6 @@ pid_t frog_process(WINDOW *win, IPCHandles *ipc, Object frog) {
                 sem_post(ipc->sync_sem);
             }
 
-
-            // Controllo se arriva un messaggio dal processo principale
-            Message m_in;
-            ssize_t n = read(ipc->frog_pipe[0], &m_in, sizeof(Message));
-            if (n > 0) {
-                if(m_in.msg_type == MSG_SET_FROG) {
-                    frog = m_in.obj;
-                }               
-            }
             usleep(FROG_PROCESS_COOLDOWN);
         }
 

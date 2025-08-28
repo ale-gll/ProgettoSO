@@ -44,11 +44,6 @@ typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE, OBJ_NONE } Objec
 //I coccodrilli e i proiettili/granate si muovono in un unica direzione a parte la rana
 typedef enum { DIR_LEFT, DIR_RIGHT, DIR_UP, DIR_DOWN, DIR_UNKNOWN } ObjectDirection;
 
-typedef enum { 
-    MSG_UPDATE_POS,         //Aggiorna posizione oggetto
-    MSG_FIRE,               //Spara un proiettile
-    MSG_SET_FROG,           //Imposta i parametri della rana
-} MessageType;
 
 //Info di un oggetto dinamico
 typedef struct {
@@ -57,6 +52,26 @@ typedef struct {
     int type;
     int direction;  //DIR_UNKNOWN nel caso della rana
 } Object;
+
+
+typedef struct ObjectNode {
+    Object data;
+    bool on_grass;
+    struct ObjectNode *next;
+    struct ObjectNode *prev;
+} ObjectNode;
+
+ObjectNode *find_node_by_pid(ObjectNode *head, pid_t pid);
+
+void remove_and_kill_node(ObjectNode **head, ObjectNode *node);
+
+
+typedef enum { 
+    MSG_UPDATE_POS,         //Aggiorna posizione oggetto
+    MSG_FIRE,               //Spara un proiettile
+    MSG_SET_FROG,           //Imposta i parametri della rana
+} MessageType;
+
 
 //Struttura di un messaggio inviabile al gestore della grafica
 typedef struct {

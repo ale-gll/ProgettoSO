@@ -14,15 +14,15 @@
 #include "game.h"
 
 void init_streams(Stream *streams, int start_y) {
-    int delay[] = {180000, 220000};
+    int delay[] = {180000, 240000};
     int direction = (rand() % 2 == 0) ? DIR_LEFT : DIR_RIGHT;
 
     for (int i = 0; i < NUM_STREAMS; i++) {
-        int crocs_per_stream = (rand() % 2) + 2; // 2 o 3 crocs per stream
+        int crocs_per_stream = (rand() % 2) + 2; // 2 o 3 coccodrilli per stream
 
         streams[i].y = start_y;
         streams[i].direction = direction;
-        streams[i].spawn_time_interval = (rand() % 3) + 4; // 4,5,6 secondi
+        streams[i].spawn_time_interval = (rand() % 3) + 5; // 5,6,7 secondi
         streams[i].delay = delay[i % 2];
         streams[i].last_spawn_time = 0; // inizialmente nessuno spawn
 
@@ -41,33 +41,28 @@ void init_streams(Stream *streams, int start_y) {
     }
 }
 
-
 bool is_out_of_screen(int win_width, int obj_x, int obj_width) {
     return (obj_x < 0 || obj_x + obj_width > win_width);
 }
-
 
 bool is_fully_out_of_screen(int win_width, int obj_x, int obj_width) {
     return (obj_x + obj_width <= 0 || obj_x >= win_width);
 }
 
-
 bool is_on_burrow(int active_lane, int dir) {
     return active_lane == (NUM_STREAMS+1) && dir == DIR_UP;
 }
 
-
 bool is_on_grass(int lane) {
-    return !(lane >= 1 && lane <= NUM_STREAMS);
+    return (lane == 0 || lane == NUM_STREAMS+1);
 }
-
 
 bool is_on_croc(Stream *stream, Object frog, int *hovered_croc){
     ObjectNode *curr = stream->crocs;
 
     while(curr) {
-        if(frog.x > curr->data.x 
-            && (frog.x + FROG_WIDTH) < (curr->data.x + CROC_WIDTH))
+        if(frog.x >= curr->data.x 
+            && (frog.x + FROG_WIDTH) <= (curr->data.x + CROC_WIDTH))
         {
             *hovered_croc = curr->data.pid;
             return true;
@@ -79,17 +74,10 @@ bool is_on_croc(Stream *stream, Object frog, int *hovered_croc){
     return false;
 }
 
-
-Object init_frog(int win_height, int win_width) {
-    Object frog;
-    frog.direction = DIR_UNKNOWN;
-    frog.pid = -1;
-    frog.type = OBJ_FROG;
-    frog.y = FROG_START_Y(win_height);
-    frog.x = FROG_START_X(win_width);
-    return frog;
+bool is_hovering_valid(const Object *frog, const Object *croc) {
+    return (frog->x >= croc->x &&
+            (frog->x + FROG_WIDTH) <=  (croc->x + CROC_WIDTH));
 }
-
 
 void set_frog(int write_fd, Object frog, bool *flag) {
     Message reset;
@@ -99,31 +87,6 @@ void set_frog(int write_fd, Object frog, bool *flag) {
         *flag = false;
     }
 }
-
-
-void init_burrows(Burrow burrows[5]) {
-    
-    int burrow_distance = 5, burrow_start_x = 5;
-
-    burrows[0].start_x = 5;
-    burrows[1].start_x = 18;
-    burrows[2].start_x = 31;
-    burrows[3].start_x = 44;
-    burrows[4].start_x = 57;
-
-    for(int i = 0; i < NUM_BURROWS; i++) {
-        burrows[i].is_occupied = false;     //tana non occupata
-        burrows[i].end_x = burrows[i].start_x + BURROW_WIDTH;
-    }
-}
-
-
-void init_stats(Stats *stats) {
-    stats->score = 0;
-    stats->lives = 5;
-    stats->time = TIME_PER_ROUND;
-}
-
 
 int update_lane(int active_lane, int direction) {
     switch (direction) {
@@ -140,7 +103,6 @@ int update_lane(int active_lane, int direction) {
     return active_lane;
 }
 
-
 bool check_burrows(Object frog, Burrow *burrows) {
 
     for(int i = 0; i < NUM_BURROWS; i++) {
@@ -156,7 +118,6 @@ bool check_burrows(Object frog, Burrow *burrows) {
     return false;
 }
 
-
 bool check_win(Stats stats, Burrow burrows[5]) {
     bool res = true;
     int burrows_size = 5;
@@ -166,7 +127,6 @@ bool check_win(Stats stats, Burrow burrows[5]) {
     }
     return res && (stats.lives > 0) && (stats.time > 0);
 }
-
 
 void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner) {
     wclear(win);
@@ -187,7 +147,6 @@ void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winne
     sleep(1);
 }
 
-
 bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
 
     bool flag = true;
@@ -199,41 +158,42 @@ bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
     return flag;
 }
 
-
 bool is_spawn_time(time_t now, Stream s) {
     return (now - s.last_spawn_time > s.spawn_time_interval);
 }
 
-
 bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int window_width) {
     // Alloca nodo per il nuovo coccodrillo
     ObjectNode *new_node = malloc(sizeof(ObjectNode));
-    if(!new_node) return false;
+    if (!new_node) return false;
 
     // Imposta dati di base del nodo
     new_node->data.direction = stream->direction;
     new_node->data.type = OBJ_CROC;
     new_node->data.x = (stream->direction == DIR_LEFT) ? window_width : -CROC_WIDTH;
     new_node->data.y = stream->y;
+    new_node->on_grass = false;   // valore di default
+    new_node->next = NULL;
+    new_node->prev = NULL;
 
     // Avvia processo figlio
     pid_t pid = croc_process(ipc, new_node->data, stream_index, stream->delay);
-    if(pid == -1) {
+    if (pid == -1) {
         free(new_node);
         return false;
     }
 
     // Aggiorna dati del nodo
     new_node->data.pid = (int) pid;
-    new_node->next = NULL;
 
     // Inserisci in coda alla lista dei coccodrilli nello stream
-    if(stream->crocs == NULL) {
+    if (stream->crocs == NULL) {
         stream->crocs = new_node;
     } else {
         ObjectNode *curr = stream->crocs;
-        while(curr->next) curr = curr->next;
+        while (curr->next) curr = curr->next;
         curr->next = new_node;
+        new_node->prev = curr;
     }
 
     // Aggiorna dati stream
@@ -242,51 +202,93 @@ bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int wi
     return true;
 }
 
-
-bool spawn_granade(IPCHandles *ipc, int start_x, int start_y, 
-    ObjectDirection dir, int active_lane, ObjectNode **active_granades) {
-
+bool spawn_granade(IPCHandles *ipc, int start_x, int start_y, ObjectDirection dir, int active_lane, ObjectNode **active_granades) 
+{
     ObjectNode *new_node = malloc(sizeof(ObjectNode));
-    if(!new_node) return false;
+    if (!new_node) return false;
 
     // Imposta dati granata
     new_node->data.direction = dir;
     new_node->data.type = OBJ_GRANADE;
     new_node->data.y = start_y;
     new_node->data.x = start_x;
+    new_node->on_grass = false;  // valore di default
+    new_node->next = NULL;
+    new_node->prev = NULL;
 
     /**
      * Se la rana è sull'erba -> stream_index = -1
      * Se è nel fiume -> stream_index = active_lane 
     */
     bool on_grass = is_on_grass(active_lane);
-    int stream_index;
-    
-    stream_index = (on_grass) ? -1 : active_lane;
+    int stream_index = (on_grass) ? -1 : active_lane;
     new_node->on_grass = on_grass;
 
     // Avvia il processo 
+    pid_t pid = proj_process(ipc, new_node->data, stream_index);
+    if (pid == -1) {
+        free(new_node);
+        return false;
+    }
+
+    new_node->data.pid = pid;
+
+    // Inserisci in coda alla lista delle granate attive 
+    if (*active_granades == NULL) {
+        *active_granades = new_node;
+    } else {
+        ObjectNode *curr = *active_granades;
+        while (curr->next) curr = curr->next;
+        curr->next = new_node;
+        new_node->prev = curr;
+    }
+
+    return true;
+}
+
+bool spawn_enemy_projectile(Stream *stream, int stream_index, IPCHandles *ipc, int start_x) {
+    // Alloca nodo per il nuovo proiettile
+    ObjectNode *new_node = malloc(sizeof(ObjectNode));
+    if(!new_node) return false;
+
+    // Imposta dati di base del nodo
+    new_node->data.direction = stream->direction;
+    new_node->data.type = OBJ_PROJECTILE;
+    new_node->data.x = start_x;
+    new_node->data.y = stream->y;
+    new_node->on_grass = false;
+    new_node->next = NULL;
+    new_node->prev = NULL;
+
+    // Avvia processo figlio
     pid_t pid = proj_process(ipc, new_node->data, stream_index);
     if(pid == -1) {
         free(new_node);
         return false;
     }
 
+    // Aggiorna dati nodo
     new_node->data.pid = pid;
-    new_node->next = NULL;
 
-    // Inserisci in coda alla lista delle granate attive 
-    if(*active_granades == NULL) {
-        *active_granades = new_node;
+    // Inserisci in coda alla lista di proiettili
+    if(stream->projs == NULL) {
+        stream->projs = new_node;
     } else {
-        ObjectNode *curr = *active_granades;
+        ObjectNode *curr = stream->projs;
         while(curr->next) curr = curr->next;
         curr->next = new_node;
+        new_node->prev = curr;
     }
 
+    // Aggiorna dati stream
+    stream->proj_count++;
     return true;
 }
 
+
+/**
+ * Funzione principale del loop di gioco
+ */
 
 void game_loop(WINDOW *win, int start_y, int start_x) {
     srand(time(NULL));
@@ -355,39 +357,45 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                 Object new_frog = m.obj;
 
                 // La rana si muove nella mappa
-                if(m.msg_type == MSG_UPDATE_POS) 
+                if (m.msg_type == MSG_UPDATE_POS) 
                 {
-                    // 1. Rana esegue una mossa non valida
-                    if( (active_lane == 0 && new_frog.direction == DIR_DOWN)
-                    || is_out_of_screen(win_width, new_frog.x, FROG_WIDTH) ) {
+                    // 1. Utente cerca di uscire fuori dallo schermo
+                    if ((active_lane == 0 && new_frog.direction == DIR_DOWN)
+                        || is_out_of_screen(win_width, new_frog.x, FROG_WIDTH)) 
+                    {
                         set_frog(ipc.frog_pipe[1], frog, &flag);
                     }
 
                     // 2. Rana cerca di salire oltre l'argine (tane)
-                    else if(is_on_burrow(active_lane, new_frog.direction)) 
+                    else if (is_on_burrow(active_lane, new_frog.direction)) 
                     {
                         if (check_burrows(new_frog, burrows)) {
                             draw_frog(win, new_frog, is_scared);
-                            wrefresh(win);
                         } else {
                             has_lost_manche = true;
                         }
-                        reset = true;   //Reset per nuova manche
+                        reset = true;   // Reset per nuova manche
                     }
-                    else {
 
+                    // 3. Movimento normale (marciapiede / fiume / coccodrilli)
+                    else {
                         int next_active_lane = update_lane(active_lane, new_frog.direction);
 
-                        // Se la rana è nel fiume deve essere sopra un coccodrillo
-                        if(is_on_grass(next_active_lane)) {
+                        if (is_on_grass(next_active_lane)) {
+                            // Su marciapiede o argine
                             remove_frog(win, frog.y, frog.x, on_grass);
                             active_lane = next_active_lane;
                             on_grass = true;
                             draw_frog(win, new_frog, is_scared);
-                            frog = new_frog;
+                            frog = new_frog;    // Aggiorno nuova posizione rana
+
+                            // Reset logico: non sono più su un coccodrillo
                             hovered_croc = -1;
+                            on_croc = false;
+                            set_frog(ipc.frog_pipe[1], new_frog, &flag);
                         }
                         else {
+                            // Fiume -> controllo se c’è un coccodrillo sotto la rana
                             on_croc = is_on_croc(&streams[next_active_lane-1], new_frog, &hovered_croc);
 
                             if (on_croc) {
@@ -396,114 +404,159 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                                 on_grass = false;
                                 draw_frog(win, new_frog, is_scared);
                                 frog = new_frog;
-                            } else {
+                            } 
+                            else {
                                 has_lost_manche = true;
                                 reset = true;
                             }
                         }
                     }
                 }
-            
+
                 // La rana spara dei proiettili
                 if(m.msg_type == MSG_FIRE) {
-                    int y_granade = frog.y + 1;
                     // Spawn granata sx e dx
-                    flag &= spawn_granade(&ipc, frog.x-1, y_granade, DIR_LEFT, active_lane, &active_granades);
-                    flag &= spawn_granade(&ipc, (frog.x + FROG_WIDTH +1), y_granade, DIR_RIGHT, active_lane, &active_granades);
+                    flag &= spawn_granade(&ipc, frog.x-1, frog.y, DIR_LEFT, active_lane, &active_granades);
+                    flag &= spawn_granade(&ipc, (frog.x + FROG_WIDTH +1), frog.y, DIR_RIGHT, active_lane, &active_granades);
                 }
-
             break;
         
             case OBJ_CROC:
-                if(m.msg_type == MSG_UPDATE_POS) 
-                {
-                    Stream *s = &streams[m.stream_index];
+                Stream *s = &streams[m.stream_index];
 
-                    // Trova il nodo corrispondente al pid
-                    ObjectNode *prev = NULL;
-                    ObjectNode *curr = s->crocs; 
+                ObjectNode *curr = find_node_by_pid(s->crocs, m.obj.pid);
 
-                    while(curr && curr->data.pid != m.obj.pid) {
-                        prev = curr;
-                        curr = curr->next;
+                if (curr) {
+                    // Processo trovato -> aggiorno o rimuovo
+                    if(is_fully_out_of_screen(win_width, m.obj.x, CROC_WIDTH)) {
+                        // Rimuovo dal rendering
+                        remove_croc(win, curr->data.y, curr->data.x);
+
+                        // Rimuovo dalla lista e kill processo
+                        remove_and_kill_node(&s->crocs, curr);
+
+                        // Decremento contatore coccodrilli
+                        s->croc_count--;
+                    } 
+                    else {
+                        // Aggiorna coccodrillo
+                        remove_croc(win, curr->data.y, curr->data.x);
+                        draw_croc(win, m.obj);
+                        curr->data = m.obj;
+
+                        bool frog_on_this_croc = (
+                            hovered_croc == m.obj.pid && 
+                            on_croc &&
+                            active_lane == m.stream_index + 1
+                        );
+
+                        // Se la rana è sopra questo coccodrillo
+                        if (frog_on_this_croc && is_hovering_valid(&frog, &m.obj) && m.msg_type == MSG_UPDATE_POS) {
+                            // Aggiorno grafica
+                            remove_frog(win, frog.y, frog.x, on_grass);
+                            frog.x += (s->direction == DIR_LEFT) ? -1 : 1;
+                            draw_frog(win, frog, is_scared);
+
+                            // Invio aggiornamento al processo rana
+                            set_frog(ipc.frog_pipe[1], frog, &flag);
+                        } 
+                        else if (hovered_croc == m.obj.pid && on_croc && !is_hovering_valid(&frog, &m.obj)) {
+                            reset = true;
+                        }
                     }
+                }
+        
+                if (m.msg_type == MSG_FIRE && curr) {
+                    if (s->proj_count < MAX_PROJ_PER_STREAM) {
+                        int direction = (curr->data.direction == DIR_LEFT) ? -1 : 1;
+                        int next_x;
 
-                    if (curr) {
-                        // Processo trovato -> aggiorno o rimuovo
-                        if(is_fully_out_of_screen(win_width, m.obj.x, CROC_WIDTH)) {
-                            // Rimuovo dal rendering
-                            remove_croc(win, curr->data.y, curr->data.x);
-
-                            // Uccido il processo
-                            kill(curr->data.pid, SIGTERM);
-                            waitpid(curr->data.pid, NULL, 0);
-
-                            // Rimuovo dalla lista
-                            if (prev) prev->next = curr->next;
-                            else s->crocs = curr->next;
-
-                            // Decremento contatore coccodrilli attivi
-                            s->croc_count--;
-
-                            // Libero la memoria allocata
-                            free(curr);
+                        if (curr->data.direction == DIR_LEFT) {
+                            next_x = curr->data.x - 1;   // appena a sinistra del coccodrillo
                         } else {
-                            // Aggiorna coccodrillo
-                            remove_croc(win, curr->data.y, curr->data.x);
-                            draw_croc(win, m.obj);
-                            curr->data = m.obj;
+                            next_x = curr->data.x + CROC_WIDTH; // appena a destra del coccodrillo
+                        }
 
-                            // Se la rana è sopra questo coccodrillo
-                            if( hovered_croc == m.obj.pid && on_croc ) 
-                            {
-                                // Aggiorno grafica
-                                remove_frog(win, frog.y, frog.x, on_grass);
-                                frog.x += (s->direction == DIR_LEFT) ? -1 : 1;
-                                draw_frog(win, frog, is_scared);
+                        flag &= spawn_enemy_projectile(s, m.stream_index, &ipc, next_x);
+                    }
+                }
 
-                                // Invio aggiornamento al processo rana
-                                set_frog(ipc.frog_pipe[1], frog, &flag);                       
+                break;
+
+            case OBJ_GRANADE:
+                if (m.msg_type == MSG_UPDATE_POS) {
+                    // Cerca l'oggetto nella lista di granate
+                    ObjectNode *curr = find_node_by_pid(active_granades, m.obj.pid);
+
+                    // Aggiorna la sua posizione
+                    if (curr) {
+                        if (is_fully_out_of_screen(win_width, curr->data.x, 1)) {
+                            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);    // Rimuovo dal rendering
+                            remove_and_kill_node(&active_granades, curr);                       // Rimuovo dalla lista
+                        } 
+                        else {
+                            // Controllo che non ci sia collisione con un proiettile
+                            if(!curr->on_grass) {
+                                // La granata si trova nel fiume
+                                ObjectNode *hit_proj = check_collision_granade_projectiles(curr, streams[m.stream_index-1].projs);
+
+                                if(hit_proj) {
+                                    // Rimuovi graficamente entrambi
+                                    remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+                                    remove_enemy_projectile(win, hit_proj->data.y, hit_proj->data.x);
+
+                                    remove_and_kill_node(&active_granades, curr);
+                                    curr = NULL;
+
+                                    remove_and_kill_node(&s->projs, hit_proj);
+                                    s->proj_count--;
+                                }
+                            }
+
+                            if(curr){
+                                // Aggiorna posizione granata
+                                remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+                                draw_granade(win, m.obj);
+                                curr->data = m.obj;
                             }
                         }
                     }
                 }
-            break;
+                break;
 
-            case OBJ_GRANADE:
+            case OBJ_PROJECTILE:
                 if(m.msg_type == MSG_UPDATE_POS) {
-                    
-                    // Cero l'oggetto nella lista di granate
-                    ObjectNode *prev = NULL;
-                    ObjectNode *curr = active_granades;
+                    Stream *s = &streams[m.stream_index];
 
-                    while (curr && curr->data.pid != m.obj.pid) {
-                        prev = curr;
-                        curr = curr->next;
-                    }
+                    ObjectNode *curr = find_node_by_pid(s->projs, m.obj.pid);
 
-                    // Aggiorno la sua posizione
                     if(curr) {
                         if(is_fully_out_of_screen(win_width, curr->data.x, 1)) {
-                            // Rimuovo dal rendering 
-                            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
-
-                            // Uccido il processo 
-                            kill(curr->data.pid, SIGTERM);
-                            waitpid(curr->data.pid, NULL, 0);
-
-                            // Rimuovo dalla lista di granate
-                            if(prev) prev->next = curr->next;
-                            else active_granades = curr->next;
-
-                            // Libero la memoria
-                            free(curr);
+                            remove_enemy_projectile(win, curr->data.y, curr->data.x);   // Rimuovo dal rendering
+                            remove_and_kill_node(&s->projs, curr);                      // Rimuovo dalla lista
+                
+                            s->proj_count--;
                         } 
                         else {
-                            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
-                            draw_granade(win, m.obj);
-                            curr->data = m.obj;
+                            // *** Ancora sullo schermo -> controlla collisione con granate ***
+                            ObjectNode *hit_grenade = check_collision_granade_projectiles(curr, active_granades);
+                            if (hit_grenade) {
+                                remove_enemy_projectile(win, curr->data.y, curr->data.x);
+                                remove_granade(win, hit_grenade->data.y, hit_grenade->data.x, hit_grenade->on_grass);
+
+                                remove_and_kill_node(&s->projs, curr);
+                                s->proj_count--;
+
+                                remove_and_kill_node(&active_granades, hit_grenade);
+                            } 
+                            else {
+                                //Nessuna collisione -> aggiorna posizione normalmente
+                                remove_enemy_projectile(win, curr->data.y, curr->data.x);
+                                draw_enemy_projectile(win, m.obj);
+                                curr->data = m.obj;
+                            }
                         }
-                    }                    
+                    }
                 }
                 break;
                             
@@ -512,6 +565,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             }
         
         }
+
 
         // Reset della manche 
         if(reset) {
@@ -630,25 +684,50 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
 void clean_all_stream_objects(WINDOW *win, Stream *streams) {
     for (int i = 0; i < NUM_STREAMS; i++) {
-        ObjectNode *curr = streams[i].crocs;
-        while (curr) {
+        ObjectNode *curr_croc = streams[i].crocs;
+        while (curr_croc) {
             // Termina il processo se ancora attivo
-            if (curr->data.pid > 0) {
-                kill(curr->data.pid, SIGTERM);
-                waitpid(curr->data.pid, NULL, 0);
-                remove_croc(win, curr->data.y, curr->data.x);
+            if (curr_croc->data.pid > 0) {
+                kill(curr_croc->data.pid, SIGTERM);
+                waitpid(curr_croc->data.pid, NULL, 0);
+                remove_croc(win, curr_croc->data.y, curr_croc->data.x);
             }
 
-            // Passa al nodo successivo e libera il corrente
-            ObjectNode *tmp = curr;
-            curr = curr->next;
+            // Salva il prossimo nodo e libera il corrente
+            ObjectNode *tmp = curr_croc;
+            curr_croc = curr_croc->next;
+
+            tmp->next = NULL;
+            tmp->prev = NULL;
             free(tmp);
         }
-        streams[i].crocs = NULL; // Lista vuota dopo la rimozione
+
+        // Elimino anche i proiettili
+        ObjectNode *curr_proj = streams[i].projs;
+        while(curr_proj) {
+            // Termina il processo se ancora attivo
+            if (curr_proj->data.pid > 0) {
+                kill(curr_proj->data.pid, SIGTERM);
+                waitpid(curr_proj->data.pid, NULL, 0);
+                remove_enemy_projectile(win, curr_proj->data.y, curr_proj->data.x);
+            }
+
+            ObjectNode *tmp = curr_proj;
+            curr_proj = curr_proj->next;
+
+            tmp->next = NULL;
+            tmp->prev = NULL;
+            free(tmp);
+        }
+
+        // Azzero le liste e i contatori
+        streams[i].crocs = NULL;
         streams[i].croc_count = 0;
+        streams[i].projs = NULL;
+        streams[i].proj_count = 0;
     }
-    wrefresh(win);
 }
+
 
 void clean_all_granades(WINDOW *win, ObjectNode **granades) {
     ObjectNode *curr = *granades;
@@ -664,8 +743,11 @@ void clean_all_granades(WINDOW *win, ObjectNode **granades) {
         // Passa al nodo successivo e libera il corrente
         ObjectNode *tmp = curr;
         curr = curr->next;
+
+        tmp->next = NULL;
+        tmp->prev = NULL;
         free(tmp);
     }
 
-    *granades = NULL;
+    *granades = NULL; // lista svuotata
 }

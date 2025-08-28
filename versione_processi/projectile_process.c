@@ -8,7 +8,7 @@
 
 volatile sig_atomic_t proj_running = 1;
 
-void handle_proj_sigterm() {
+void handle_proj_sigterm(int sig) {
     proj_running = 0;
 }
 

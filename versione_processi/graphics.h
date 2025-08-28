@@ -16,12 +16,16 @@
 #define SCARED_FROG_COLOR_PAIR 8
 #define STATS_COLOR_PAIR 9
 #define GRANADE_COLOR_PAIR 12
+#define ENEMY_PROJ_COLOR_PAIR 13
 
 
 #define NUM_STREAMS 8
 #define BURROW_WIDTH 8
 #define NUM_BURROWS 5
 #define TIME_PER_ROUND 50 
+
+#define FROG_START_Y(win_height) ((win_height) - FROG_CROC_HEIGHT)
+#define FROG_START_X(win_width)  (((win_width) - 10) / 2)
 
 
 //Sprite dei personaggi (dichiarazioni)
@@ -51,6 +55,13 @@ void init_playground(WINDOW *win, WINDOW *stats_win, int win_height, int win_wid
     Object frog, Burrow burrows[5], Stats stats)
 ;
 
+Object init_frog(int win_height, int win_width);
+
+void init_burrows(Burrow burrows[5]);
+
+void init_stats(Stats *stats);
+
+
 /* Funzioni per il disegno degli oggetti dinamici */
 
 void draw_frog(WINDOW *win, Object frog, bool scared);
@@ -65,6 +76,8 @@ void draw_stats(WINDOW *win, Stats stats);
 
 void draw_granade(WINDOW *win, Object granade);
 
+void draw_enemy_projectile(WINDOW *win, Object proj);
+
 
 /* Funzioni per la cancellazione dalla grafica degli oggetti dinamici */
 
@@ -75,6 +88,13 @@ void remove_stats(WINDOW *win);
 void remove_croc(WINDOW *win, int y, int x);
 
 void remove_granade(WINDOW *win, int y, int x, bool on_grass);
+
+void remove_enemy_projectile(WINDOW *win, int y, int x);
+
+
+/* Funzioni per il rilevamento delle collisioni */
+
+ObjectNode* check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *list );
 
 
 // Rimuove completamente una finestra

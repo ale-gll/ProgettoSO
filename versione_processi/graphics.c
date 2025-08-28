@@ -42,7 +42,8 @@ char *croc_sprite_dx[] = {
 };
 
 
-// Inizializza i colori del gioco
+/* Funzioni di inizializzazione del campo di gioco */
+
 void init_game_colors() {
     init_color(COLOR_BROWN, 245, 222, 179);
 
@@ -55,10 +56,10 @@ void init_game_colors() {
     init_pair(BURROW_COLOR_PAIR, COLOR_BLACK, COLOR_BROWN); //Tana
     init_pair(SCARED_FROG_COLOR_PAIR, COLOR_BLACK, COLOR_RED);    //Rana spaventata
     init_pair(STATS_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);  //Statistiche
-    init_pair(GRANADE_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);
+    init_pair(GRANADE_COLOR_PAIR, COLOR_MAGENTA, COLOR_BLACK);  // Granate rana
+    init_pair(ENEMY_PROJ_COLOR_PAIR, COLOR_WHITE, COLOR_BLACK);   // Proiettili nemici
 }
 
-// Inizializza la grafica del playground
 void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_width, 
     Object frog, Burrow burrows[5], Stats stats) 
 {
@@ -74,6 +75,39 @@ void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_
     wrefresh(pg_win);
     wrefresh(stats_win);
 }
+
+Object init_frog(int win_height, int win_width) {
+    Object frog;
+    frog.direction = DIR_UNKNOWN;
+    frog.pid = -1;
+    frog.type = OBJ_FROG;
+    frog.y = FROG_START_Y(win_height);
+    frog.x = FROG_START_X(win_width);
+    return frog;
+}
+
+void init_burrows(Burrow burrows[5]) {
+    
+    int burrow_distance = 5, burrow_start_x = 5;
+
+    burrows[0].start_x = 5;
+    burrows[1].start_x = 18;
+    burrows[2].start_x = 31;
+    burrows[3].start_x = 44;
+    burrows[4].start_x = 57;
+
+    for(int i = 0; i < NUM_BURROWS; i++) {
+        burrows[i].is_occupied = false;     //tana non occupata
+        burrows[i].end_x = burrows[i].start_x + BURROW_WIDTH;
+    }
+}
+
+void init_stats(Stats *stats) {
+    stats->score = 0;
+    stats->lives = 5;
+    stats->time = TIME_PER_ROUND;
+}
+
 
 
 /* Funzioni di disegno*/
@@ -137,7 +171,9 @@ void draw_granade(WINDOW *win, Object granade) {
 }
 
 void draw_enemy_projectile(WINDOW *win, Object proj) {
-    char *sprite = "()";
+    wattron(win, COLOR_PAIR(ENEMY_PROJ_COLOR_PAIR));
+    mvwprintw(win, proj.y, proj.x, "+");
+    wattroff(win, COLOR_PAIR(ENEMY_PROJ_COLOR_PAIR));
 }
 
 void draw_walkable(WINDOW *win, int y, int x) {
@@ -235,6 +271,30 @@ void remove_granade(WINDOW *win, int y, int x, bool on_grass) {
     }
 }
 
+void remove_enemy_projectile(WINDOW *win, int y, int x) {
+    mvwprintw(win, y, x, " ");
+}
+
+
+/* Funzioni per il controllo delle collisioni tra oggetti */
+
+ObjectNode *check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *list ) {
+    
+    ObjectNode *curr = list; 
+
+    while(curr) {  
+        // Condizione di collisione: stessa cella
+        if(curr->data.x == obj->data.x && curr->data.y == obj->data.y) {
+            return curr;
+        }
+        
+        curr = curr->next;
+    }
+    return NULL;
+}
+
+
+/* Chiusura di una finestra */
 
 void close_window(WINDOW *win) {
     if (win != NULL) {
