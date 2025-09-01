@@ -770,7 +770,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     cleanup_ipc_handles(&ipc, sync_sem_name);
 
     close_window(stats_win);    //Elimino la finestra delle statistiche
-    print_game_result(win, win_height, win_width, is_winner);   //Stampa schermata di fine
+    print_game_result(win, win_height, win_width, is_winner, stats.score);   //Stampa schermata di fine
 }
 
 
@@ -852,20 +852,23 @@ void clean_all_granades(WINDOW *win, ObjectNode **granades) {
  * Funzione per la stampa del risultato
  */
 
-void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner) {
+void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner, int score){
     wclear(win);
     wbkgd(win, A_NORMAL);
     box(win, 0, 0);
 
-    const char *press_enter_str = "Press ENTER to exit...";
-    const char *message = is_winner ? "YOU WIN" : "YOU LOSE";
+    char *press_enter_str = "Press ENTER to exit...";
+    char *win_message = is_winner ? "YOU WIN" : "YOU LOSE";
+    char total_score_str[20];
 
-    int message_len = strlen(message);
+    int message_len = strlen(win_message);
     int press_len = strlen(press_enter_str);
+    int tot_score_len = snprintf(total_score_str, 20, "%s %d", "Total score:", score);
 
     wattron(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
-    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", message);
-    mvwprintw(win, (win_height/2)+1, (win_width - press_len)/2, "%s", press_enter_str);
+    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", win_message);
+    mvwprintw(win, (win_height/2)+1, (win_width - tot_score_len)/2, "%s", total_score_str);
+    mvwprintw(win, (win_height/2)+3, (win_width - press_len)/2, "%s", press_enter_str);
     wattroff(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
     wrefresh(win);
     while(wgetch(win) != '\n');

@@ -74,11 +74,9 @@ void clean_all_stream_objects(WINDOW *win, Stream *streams);
 
 void clean_all_granades(WINDOW *win, ObjectNode **granades);
 
-void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
-
 void game_loop(WINDOW *win, int start_y, int start_x);
 
 
-void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner);
+void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner, int score);
 
 #endif
