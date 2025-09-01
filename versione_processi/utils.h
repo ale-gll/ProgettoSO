@@ -83,4 +83,18 @@ typedef struct {
 void set_message(Message *m, int msg_type, Object *obj, int *stream_index);
 
 
+//Definisce dove inizia e finisce una tana (indica anche se è stata occupata)
+typedef struct {
+    bool is_occupied;
+    int start_x, end_x;
+} Burrow;
+
+//Statistiche di gioco
+typedef struct {
+    int score;      //Punteggio 
+    int lives;      //Vite della rana
+    int time;       //Tempo in sec
+} Stats;
+
+
 #endif

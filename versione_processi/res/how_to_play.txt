@@ -13,8 +13,8 @@ right to neutralize any incoming crocodile bullet.
 SCORING:
 
 - Reach a burrow: +500 points
-- Time bonus: +20 per second left
-- Move forward (KEY_UP): +9 points
-- Move down (KEY_DOWN): -5 points
+- Time bonus: +20 per second left   (each manche)
+- Move forward (KEY_UP): +15 points
+- Move down (KEY_DOWN): -10 points
 - Complete all burrows without dying: +1500 points
 - Lose a life: -500 points

@@ -76,39 +76,6 @@ void init_playground(WINDOW *pg_win, WINDOW *stats_win, int win_height, int win_
     wrefresh(stats_win);
 }
 
-Object init_frog(int win_height, int win_width) {
-    Object frog;
-    frog.direction = DIR_UNKNOWN;
-    frog.pid = -1;
-    frog.type = OBJ_FROG;
-    frog.y = FROG_START_Y(win_height);
-    frog.x = FROG_START_X(win_width);
-    return frog;
-}
-
-void init_burrows(Burrow burrows[5]) {
-    
-    int burrow_distance = 5, burrow_start_x = 5;
-
-    burrows[0].start_x = 5;
-    burrows[1].start_x = 18;
-    burrows[2].start_x = 31;
-    burrows[3].start_x = 44;
-    burrows[4].start_x = 57;
-
-    for(int i = 0; i < NUM_BURROWS; i++) {
-        burrows[i].is_occupied = false;     //tana non occupata
-        burrows[i].end_x = burrows[i].start_x + BURROW_WIDTH;
-    }
-}
-
-void init_stats(Stats *stats) {
-    stats->score = 0;
-    stats->lives = 5;
-    stats->time = TIME_PER_ROUND;
-}
-
-
 
 /* Funzioni di disegno*/
 
@@ -293,6 +260,16 @@ ObjectNode *check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *lis
     return NULL;
 }
 
+bool check_collision_frog_projectile(Object *frog, Object *proj) {
+    // Controllo orizzontale (X overlap)
+    bool overlap_x = proj->x < frog->x + FROG_WIDTH &&
+                     proj->x + 1 > frog->x;
+
+    // Controllo verticale (Y overlap -> stessa corsia)
+    bool overlap_y = proj->y == frog->y;
+
+    return overlap_x && overlap_y;
+}
 
 /* Chiusura di una finestra */
 

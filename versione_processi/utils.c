@@ -137,3 +137,4 @@ void remove_and_kill_node(ObjectNode **head, ObjectNode *node) {
     // Free nodo
     free(node);
 }
+

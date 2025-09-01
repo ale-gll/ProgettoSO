@@ -7,7 +7,13 @@
 #define MAX_CROCS_PER_STREAM 3
 #define MAX_PROJ_PER_STREAM 2
 #define OBJ_DUMMY (Object){ .pid = -1, .y = -1, .x = -1, .type = OBJ_NONE, .direction = DIR_UNKNOWN }
-
+#define NUM_STREAMS 8
+#define BURROW_WIDTH 8
+#define NUM_BURROWS 5
+#define NUM_LIVES 5
+#define TIME_PER_ROUND 50 
+#define FROG_START_Y(win_height) ((win_height) - FROG_CROC_HEIGHT)
+#define FROG_START_X(win_width)  (((win_width) - 10) / 2)
 
 //Definisce una corrente del fiume
 typedef struct {
@@ -28,12 +34,27 @@ typedef struct {
 } Stream;
 
 
+// Eventi di gioco che modificano il punteggio
+typedef enum {
+    SCORE_REACH_BURROW,
+    SCORE_MOVE_UP,
+    SCORE_MOVE_DOWN,
+    SCORE_COMPLETE_ALL_BURROWS,
+    SCORE_LOSE_LIFE
+} ScoreEvent;
+
+void update_score(Stats *stats, ScoreEvent e);
+
+Object init_frog(int win_height, int win_width);
+
+void init_burrows(Burrow burrows[5]);
+
+void init_stats(Stats *stats);
+
 bool is_on_grass(int lane);
 
-// Controlla se un elemento è parzialmente fuori schermo
 bool is_out_of_screen(int win_width, int obj_x, int obj_width);
 
-// Controlla se un elemento è completamente fuori schermo
 bool is_fully_out_of_screen(int win_width, int obj_x, int obj_width);
 
 int update_lane(int active_lane, int direction);

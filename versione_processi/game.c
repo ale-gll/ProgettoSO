@@ -13,6 +13,10 @@
 #include "projectile_process.h"
 #include "game.h"
 
+/**
+ * Funzioni helper
+ */
+
 void init_streams(Stream *streams, int start_y) {
     int delay[] = {180000, 240000};
     int direction = (rand() % 2 == 0) ? DIR_LEFT : DIR_RIGHT;
@@ -128,24 +132,85 @@ bool check_win(Stats stats, Burrow burrows[5]) {
     return res && (stats.lives > 0) && (stats.time > 0);
 }
 
-void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner) {
-    wclear(win);
-    wbkgd(win, A_NORMAL);
-    box(win, 0, 0);
-
-    const char *press_enter_str = "Press ENTER to exit...";
-    const char *message = is_winner ? "YOU WIN" : "YOU LOSE";
-
-    int message_len = strlen(message);
-    int press_len = strlen(press_enter_str);
-
-    wattron(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
-    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", message);
-    mvwprintw(win, (win_height/2)+1, (win_width - press_len)/2, "%s", press_enter_str);
-    wattroff(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
-    wrefresh(win);
-    sleep(1);
+bool is_spawn_time(time_t now, Stream s) {
+    return (now - s.last_spawn_time > s.spawn_time_interval);
 }
+
+void update_score(Stats *stats, ScoreEvent e) {
+    int delta = 0;
+
+    switch (e)
+    {
+    case SCORE_REACH_BURROW:
+        delta += 500 + (stats->time * 20);
+        break;
+
+    case SCORE_MOVE_UP:
+        delta += 15;
+        break;
+
+    case SCORE_MOVE_DOWN:
+        delta -= 10;
+        break;
+
+    case SCORE_LOSE_LIFE:
+        delta -= 500;
+        break;
+    
+    case SCORE_COMPLETE_ALL_BURROWS:
+        if(stats->lives == NUM_LIVES) {
+            delta += 1500;
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    stats->score += delta;
+}
+
+
+/**
+ * Funzioni per l'inizializzazione di Stats, Burrows e rana
+*/
+
+Object init_frog(int win_height, int win_width) {
+    Object frog;
+    frog.direction = DIR_UNKNOWN;
+    frog.pid = -1;
+    frog.type = OBJ_FROG;
+    frog.y = FROG_START_Y(win_height);
+    frog.x = FROG_START_X(win_width);
+    return frog;
+}
+
+void init_burrows(Burrow burrows[5]) {
+    
+    int burrow_distance = 5, burrow_start_x = 5;
+
+    burrows[0].start_x = 5;
+    burrows[1].start_x = 18;
+    burrows[2].start_x = 31;
+    burrows[3].start_x = 44;
+    burrows[4].start_x = 57;
+
+    for(int i = 0; i < NUM_BURROWS; i++) {
+        burrows[i].is_occupied = false;     //tana non occupata
+        burrows[i].end_x = burrows[i].start_x + BURROW_WIDTH;
+    }
+}
+
+void init_stats(Stats *stats) {
+    stats->score = 0;
+    stats->lives = NUM_LIVES;
+    stats->time = TIME_PER_ROUND;
+}
+
+
+/**
+ * Funzioni per lo spawn degli oggetti dinamici 
+*/
 
 bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
 
@@ -156,10 +221,6 @@ bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
     }   
     
     return flag;
-}
-
-bool is_spawn_time(time_t now, Stream s) {
-    return (now - s.last_spawn_time > s.spawn_time_interval);
 }
 
 bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int window_width) {
@@ -288,7 +349,7 @@ bool spawn_enemy_projectile(Stream *stream, int stream_index, IPCHandles *ipc, i
 
 /**
  * Funzione principale del loop di gioco
- */
+*/
 
 void game_loop(WINDOW *win, int start_y, int start_x) {
     srand(time(NULL));
@@ -326,8 +387,9 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     pid_t frog_pid = frog_process(win, &ipc, frog);
 
 
-
-    //Processo principale
+    /**
+     * Processo principale
+    */
 
     int active_lane = 0;
     bool on_grass = true;
@@ -379,6 +441,15 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
                     // 3. Movimento normale (marciapiede / fiume / coccodrilli)
                     else {
+
+                        // Aggiorno il punteggio 
+                        if(new_frog.direction == DIR_UP) { 
+                            update_score(&stats, SCORE_MOVE_UP);
+                        }
+                        else if (new_frog.direction == DIR_DOWN && active_lane > 0) {
+                            update_score(&stats, SCORE_MOVE_DOWN);
+                        } 
+
                         int next_active_lane = update_lane(active_lane, new_frog.direction);
 
                         if (is_on_grass(next_active_lane)) {
@@ -454,7 +525,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         if (frog_on_this_croc && is_hovering_valid(&frog, &m.obj) && m.msg_type == MSG_UPDATE_POS) {
                             // Aggiorno grafica
                             remove_frog(win, frog.y, frog.x, on_grass);
-                            frog.x += (s->direction == DIR_LEFT) ? -1 : 1;
+                            if(frog.x > 0 && (frog.x + FROG_WIDTH) < win_width) frog.x += (s->direction == DIR_LEFT) ? -1 : 1;
                             draw_frog(win, frog, is_scared);
 
                             // Invio aggiornamento al processo rana
@@ -462,6 +533,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         } 
                         else if (hovered_croc == m.obj.pid && on_croc && !is_hovering_valid(&frog, &m.obj)) {
                             reset = true;
+                            has_lost_manche = true;
                         }
                     }
                 }
@@ -538,7 +610,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                             s->proj_count--;
                         } 
                         else {
-                            // *** Ancora sullo schermo -> controlla collisione con granate ***
+                            // *** Collisione con granata ***
                             ObjectNode *hit_grenade = check_collision_granade_projectiles(curr, active_granades);
                             if (hit_grenade) {
                                 remove_enemy_projectile(win, curr->data.y, curr->data.x);
@@ -549,6 +621,12 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
                                 remove_and_kill_node(&active_granades, hit_grenade);
                             } 
+                            // *** Collisione con rana ***
+                            else if(check_collision_frog_projectile(&frog, &curr->data)) {
+                                // Reset manche
+                                reset = true;
+                                has_lost_manche = true;
+                            }
                             else {
                                 //Nessuna collisione -> aggiorna posizione normalmente
                                 remove_enemy_projectile(win, curr->data.y, curr->data.x);
@@ -566,13 +644,41 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
         
         }
 
+        /**
+         * Controllo condizioni di fine manche / partita
+        */
+        if(stats.time < 0) {
+            reset = true;
+            has_lost_manche = true;
+        } else {
+            time_t now = time(NULL);
+            if(now - last_update_time  >= 1) {
+                stats.time--;
+                remove_stats(stats_win);
+                draw_stats(stats_win, stats);
+                last_update_time  = now;
+            }
+        }
 
-        // Reset della manche 
+        //L'utente ha vinto
+        if(check_win(stats, burrows)) {
+            is_winner = true;
+            break;
+        } 
+        //L'utente ha perso
+        else if(stats.lives == 0) {
+            break;
+        }
+
+
+        /**
+         * Reset della manche
+        */
         if(reset) {
             // Elimino tutti gli elementi del fiume
             clean_all_stream_objects(win, streams);     // Esegue wait()
-            
             clean_all_granades(win, &active_granades);
+
 
             // Eliminazione e kill della rana
             remove_frog(win, frog.y, frog.x, on_grass);
@@ -580,16 +686,18 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             waitpid(frog_pid, NULL, 0);
             wrefresh(win);
 
+
+            // Aggiorno le statistiche 
             remove_stats(stats_win);
-            // Aggiorno le statistiche
             if(has_lost_manche) {
                 stats.lives--;
+                update_score(&stats, SCORE_LOSE_LIFE);
+            } else {
+                update_score(&stats, SCORE_REACH_BURROW);
             }
             stats.time = TIME_PER_ROUND;
-            
-            // Aggiorna punteggio*************
-
             draw_stats(stats_win, stats);
+
 
             // Chiudo le risorse
             clean_up_pipe(ipc.shared_pipe);
@@ -624,15 +732,9 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
             reset = false;
         }
 
-        //Aggiorno il tempo rimanente
-        time_t now = time(NULL);
-        if(now - last_update_time  >= 1) {
-            stats.time--;
-            remove_stats(stats_win);
-            draw_stats(stats_win, stats);
-            last_update_time  = now;
-        }
-
+        /**
+         * Spawn di nuovi coccodrilli 
+        */
         time_t t = time(NULL);
         // --- Spawn nuovi coccodrilli ---
         for (int i = 0; i < NUM_STREAMS; i++) {
@@ -647,16 +749,6 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                     s->spawn_time_interval = (rand() % 3) + 4;
                 }
             }
-        }
-
-        //L'utente ha vinto
-        if(check_win(stats, burrows)) {
-            is_winner = true;
-            break;
-        } 
-        //L'utente ha perso
-        else if(stats.lives == 0) {
-            break;
         }
 
         wrefresh(win);
@@ -681,6 +773,10 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
     print_game_result(win, win_height, win_width, is_winner);   //Stampa schermata di fine
 }
 
+
+/**
+ * Funzioni per pulizia grafica e kill processi
+ */
 
 void clean_all_stream_objects(WINDOW *win, Stream *streams) {
     for (int i = 0; i < NUM_STREAMS; i++) {
@@ -728,7 +824,6 @@ void clean_all_stream_objects(WINDOW *win, Stream *streams) {
     }
 }
 
-
 void clean_all_granades(WINDOW *win, ObjectNode **granades) {
     ObjectNode *curr = *granades;
 
@@ -750,4 +845,28 @@ void clean_all_granades(WINDOW *win, ObjectNode **granades) {
     }
 
     *granades = NULL; // lista svuotata
+}
+
+
+/**
+ * Funzione per la stampa del risultato
+ */
+
+void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner) {
+    wclear(win);
+    wbkgd(win, A_NORMAL);
+    box(win, 0, 0);
+
+    const char *press_enter_str = "Press ENTER to exit...";
+    const char *message = is_winner ? "YOU WIN" : "YOU LOSE";
+
+    int message_len = strlen(message);
+    int press_len = strlen(press_enter_str);
+
+    wattron(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
+    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", message);
+    mvwprintw(win, (win_height/2)+1, (win_width - press_len)/2, "%s", press_enter_str);
+    wattroff(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
+    wrefresh(win);
+    while(wgetch(win) != '\n');
 }

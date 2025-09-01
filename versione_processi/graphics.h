@@ -19,32 +19,10 @@
 #define ENEMY_PROJ_COLOR_PAIR 13
 
 
-#define NUM_STREAMS 8
-#define BURROW_WIDTH 8
-#define NUM_BURROWS 5
-#define TIME_PER_ROUND 50 
-
-#define FROG_START_Y(win_height) ((win_height) - FROG_CROC_HEIGHT)
-#define FROG_START_X(win_width)  (((win_width) - 10) / 2)
-
-
 //Sprite dei personaggi (dichiarazioni)
 extern char *frog_sprite[];
 extern char *croc_sprite_sx[];
 extern char *croc_sprite_dx[];
-
-//Definisce dove inizia e finisce una tana (indica anche se è stata occupata)
-typedef struct {
-    bool is_occupied;
-    int start_x, end_x;
-} Burrow;
-
-//Statistiche di gioco
-typedef struct {
-    int score;      //Punteggio 
-    int lives;      //Vite della rana
-    int time;       //Tempo in sec
-} Stats;
 
 
 // Inizializza i colori usati nel gioco
@@ -54,13 +32,6 @@ void init_game_colors();
 void init_playground(WINDOW *win, WINDOW *stats_win, int win_height, int win_width, 
     Object frog, Burrow burrows[5], Stats stats)
 ;
-
-Object init_frog(int win_height, int win_width);
-
-void init_burrows(Burrow burrows[5]);
-
-void init_stats(Stats *stats);
-
 
 /* Funzioni per il disegno degli oggetti dinamici */
 
@@ -95,6 +66,8 @@ void remove_enemy_projectile(WINDOW *win, int y, int x);
 /* Funzioni per il rilevamento delle collisioni */
 
 ObjectNode* check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *list );
+
+bool check_collision_frog_projectile(Object *frog, Object *proj);
 
 
 // Rimuove completamente una finestra
