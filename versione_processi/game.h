@@ -6,7 +6,6 @@
 
 #define MAX_CROCS_PER_STREAM 3
 #define MAX_PROJ_PER_STREAM 2
-#define OBJ_DUMMY (Object){ .pid = -1, .y = -1, .x = -1, .type = OBJ_NONE, .direction = DIR_UNKNOWN }
 #define NUM_STREAMS 8
 #define BURROW_WIDTH 8
 #define NUM_BURROWS 5

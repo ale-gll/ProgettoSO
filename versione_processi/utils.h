@@ -5,10 +5,6 @@
 #include <semaphore.h>
 #include <stdbool.h>
 
-#define DEBUG_LOG_FILE "res/debug_log.txt"  // Nome del file di log
-
-void debug_log(const char *func_name, int pid, const char *error_msg, const char *log_file);
-
 
 //Dimensioni delle sprite
 #define FROG_WIDTH 5
@@ -39,7 +35,7 @@ void cleanup_ipc_handles(IPCHandles *ipc, char *sync_sem_name);
 
 
 //Tipi di oggetti dinamici presenti in gioco
-typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE, OBJ_NONE } ObjectType;
+typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE } ObjectType;
 
 //I coccodrilli e i proiettili/granate si muovono in un unica direzione a parte la rana
 typedef enum { DIR_LEFT, DIR_RIGHT, DIR_UP, DIR_DOWN, DIR_UNKNOWN } ObjectDirection;

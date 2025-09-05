@@ -1,5 +1,4 @@
 #include <stdlib.h>
-#include <stdio.h>      /* ****************************** */
 #include <unistd.h> 
 #include <sys/mman.h>
 #include <sys/stat.h>   //ftruncate
@@ -87,21 +86,6 @@ void set_message(Message *m, int msg_type, Object *obj, int *stream_index)
     m->msg_type = msg_type;
     if(obj != NULL) m->obj = *obj;
     m->stream_index = (stream_index == NULL) ? -1 : *stream_index;
-}
-
-
-void debug_log(const char *func_name, int pid, const char *error_msg, const char *log_file) {
-    FILE *fp = fopen(log_file, "a");
-    if (!fp) return;
-
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-
-    // Format: [HH:MM:SS] (PID) FUNC: error message
-    fprintf(fp, "[%02d:%02d:%02d] (%d) %s: %s\n", 
-            t->tm_hour, t->tm_min, t->tm_sec, pid, func_name, error_msg);
-
-    fclose(fp);
 }
 
 

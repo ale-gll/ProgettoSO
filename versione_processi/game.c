@@ -187,8 +187,6 @@ Object init_frog(int win_height, int win_width) {
 
 void init_burrows(Burrow burrows[5]) {
     
-    int burrow_distance = 5, burrow_start_x = 5;
-
     burrows[0].start_x = 5;
     burrows[1].start_x = 18;
     burrows[2].start_x = 31;
@@ -409,7 +407,6 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
     while(flag) {
         Message m;
-        Object old_croc; 
 
         ssize_t bytes = read(ipc.shared_pipe[0], &m, sizeof m);
         if(bytes > 0) {
@@ -550,6 +547,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                         }
 
                         flag &= spawn_enemy_projectile(s, m.stream_index, &ipc, next_x);
+                        draw_frog(win, frog, is_scared);
                     }
                 }
 
