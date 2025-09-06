@@ -5,13 +5,14 @@
 #include <semaphore.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <stdatomic.h>
 
 #define FROG_WIDTH 5
 #define FROG_CROC_HEIGHT 2  //rana e coccodrillo hanno la stessa altezza
 #define CROC_WIDTH 12
 
 
-#define BUFFER_SIZE 16
+#define BUFFER_SIZE 128
 
 //Tipi di oggetti dinamici presenti in gioco
 typedef enum { OBJ_FROG, OBJ_CROC, OBJ_PROJECTILE, OBJ_GRANADE, OBJ_NONE } ObjectType;

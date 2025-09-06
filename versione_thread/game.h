@@ -14,17 +14,9 @@
 #define FROG_START_Y(win_height) ((win_height) - FROG_CROC_HEIGHT)
 #define FROG_START_X(win_width)  (((win_width) - 10) / 2)
 
-/* da mettere in proj_thread */
-typedef struct {
-    pthread_t tid; 
-    Object proj;
-    int stream_index;
-    SharedBuffer *buffer;   
-    bool running; 
-} ProjArgs;
 
 typedef struct {
-    Object obj;          // posizione e tipo dell’oggetto
+    Object obj;
     void *args;          // puntatore al suo ThreadArgs (es. CrocArgs*, ProjArgs*)
 } ActiveEntity;
 
@@ -38,6 +30,25 @@ typedef struct EntityNode {
 } EntityNode;
 
 
+//Definisce una corrente del fiume
+typedef struct {
+    int y;                    // ordinata dello stream
+    int spawn_time_interval;  // tempo randomico di spawn
+    time_t last_spawn_time;
+    int delay;
+    int direction;
+    
+    int croc_count;   // quanti coccodrilli ci sono attualmente
+    int max_crocs;    // numero massimo di coccodrilli consentiti
+    
+    int proj_count;   // quanti proiettili ci sono attualmente
+    int max_projs;    // numero massimo di proiettili consentiti
+
+    EntityNode *crocs;  // lista dei coccodrilli nello Stream    
+    EntityNode *projs;  // lista dei proiettili nello Stream
+} Stream;
+
+
 // Eventi di gioco che modificano il punteggio
 typedef enum {
     SCORE_REACH_BURROW,
@@ -47,10 +58,6 @@ typedef enum {
     SCORE_LOSE_LIFE
 } ScoreEvent;
 
-
-/**
- * Funzioni helper 
- */
 
 
 /**

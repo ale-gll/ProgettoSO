@@ -1,5 +1,5 @@
 #include <ncurses.h>
-#include <semaphore.h>
+#include <unistd.h>
 #include "utils.h"
 #include "frog_thread.h"
 
@@ -7,12 +7,16 @@ void *frog_thread(void *arg) {
     FrogArgs *args = (FrogArgs *) arg;
     args->tid = pthread_self();
 
+    pthread_mutex_lock(args->win_mutex);
     keypad(args->win, true);
     noecho();
     cbreak();
     nodelay(args->win, true);
+    pthread_mutex_unlock(args->win_mutex);
 
-    while(args->running) {
+
+    while(atomic_load(&args->running)) 
+    {
         bool moved = false;
         pthread_mutex_lock(args->win_mutex);
         int ch = wgetch(args->win);
@@ -58,6 +62,7 @@ void *frog_thread(void *arg) {
             produce(args->buffer, &m_out);
         }
         pthread_mutex_unlock(args->frog_mutex);
+        usleep(FROG_THREAD_COOLDOWN);
     }
     return NULL;
 }

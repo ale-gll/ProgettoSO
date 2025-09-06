@@ -8,7 +8,7 @@ typedef struct {
     int delay;
     int stream_index;
     SharedBuffer *buffer;   
-    bool running; 
+    atomic_bool running; 
 } CrocArgs;
 
 void *croc_thread(void *arg);
