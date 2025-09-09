@@ -578,6 +578,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
                                     remove_and_kill_node(&active_granades, curr);
                                     curr = NULL;
 
+                                    Stream *s = &streams[m.stream_index-1];
                                     remove_and_kill_node(&s->projs, hit_proj);
                                     s->proj_count--;
                                 }
@@ -751,7 +752,7 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
         wrefresh(win);
         wrefresh(stats_win);
-        usleep(2000);
+        usleep(1000);
     }
 
 
