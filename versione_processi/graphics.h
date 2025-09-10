@@ -2,6 +2,7 @@
 #ifndef GRAPHICS_H
 #define GRAPHICS_H
 
+#include <curses.h>
 #include "utils.h"
 
 //Define dei colori
