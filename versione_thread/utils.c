@@ -7,57 +7,89 @@
 #include "utils.h"
 
 
-void buffer_init(SharedBuffer *buf) {
-    buf->head = 0;
-    buf->tail = 0;
+void buffer_init(SharedBuffer *buf, int capacity) {
+    buf->head = NULL;
+    buf->tail = NULL;
     buf->count = 0;
+    buf->capacity = capacity;
 
     pthread_mutex_init(&buf->mutex, NULL);
-    sem_init(&buf->empty, 0, BUFFER_SIZE);
-    sem_init(&buf->full, 0, 0);
 }
 
 void buffer_destroy(SharedBuffer *buf) {
-    pthread_mutex_destroy(&buf->mutex);
-    sem_destroy(&buf->empty);
-    sem_destroy(&buf->full);
-}
-
-void produce(SharedBuffer *buf, Message *msg) {
-    sem_wait(&buf->empty);             // attende slot libero
     pthread_mutex_lock(&buf->mutex);
 
-    buf->buffer[buf->head] = *msg;
-    buf->head = (buf->head + 1) % BUFFER_SIZE;
+    BufferNode *curr = buf->head;
+    while (curr) {
+        BufferNode *tmp = curr;
+        curr = curr->next;
+        free(tmp);
+    }
+
+    buf->head = buf->tail = NULL;
+    buf->count = 0;
+
+    pthread_mutex_unlock(&buf->mutex);
+
+    pthread_mutex_destroy(&buf->mutex);
+}
+
+bool produce_try(SharedBuffer *buf, Message *msg) {
+    pthread_mutex_lock(&buf->mutex);
+
+    if (buf->count >= buf->capacity) {
+        pthread_mutex_unlock(&buf->mutex);
+        return false; // buffer pieno
+    }
+
+    BufferNode *node = malloc(sizeof(BufferNode));
+    if (!node) {
+        pthread_mutex_unlock(&buf->mutex);
+        return false; // allocazione fallita
+    }
+
+    node->msg = *msg;
+    node->next = NULL;
+
+    if (buf->tail) {
+        buf->tail->next = node;     // C'è almeno un elemento
+    } else {
+        buf->head = node;           // Lista vuota
+    }
+
+    buf->tail = node;
     buf->count++;
 
     pthread_mutex_unlock(&buf->mutex);
-    sem_post(&buf->full);              // segnala nuovo elemento
+    return true;
 }
 
 bool consume_try(SharedBuffer *buf, Message *msg) {
-    if (sem_trywait(&buf->full) != 0) {
-        return false; // nessun messaggio disponibile
-    }
-
     pthread_mutex_lock(&buf->mutex);
 
-    *msg = buf->buffer[buf->tail];
-    buf->tail = (buf->tail + 1) % BUFFER_SIZE;
+    if (buf->count == 0) {
+        pthread_mutex_unlock(&buf->mutex);
+        return false; // vuoto
+    }
+
+    BufferNode *node = buf->head;
+    *msg = node->msg;
+
+    buf->head = node->next;
+    if (!buf->head) buf->tail = NULL;
+
+    free(node);
     buf->count--;
 
     pthread_mutex_unlock(&buf->mutex);
-    sem_post(&buf->empty);
-
-    return true; // messaggio consumato
+    return true;
 }
-
 
 void set_message(Message *m, pthread_t tid, int msg_type, Object *obj, int *stream_index) 
 {
     m->tid = tid;
     m->msg_type = msg_type;
-    if(obj != NULL) m->obj = *obj;
+    if(obj) m->obj = *obj;
     m->stream_index = (stream_index == NULL) ? -1 : *stream_index;
 }
 

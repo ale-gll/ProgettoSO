@@ -2,7 +2,7 @@
 #ifndef FROG_THREAD_H
 #define FROG_THREAD_H
 
-#define FROG_THREAD_COOLDOWN 12000
+#define FROG_THREAD_COOLDOWN 15000
 
 typedef struct {
     pthread_t tid;                      // thread ID 

@@ -64,9 +64,9 @@ void remove_enemy_projectile(WINDOW *win, int y, int x);
 
 /* Funzioni per il rilevamento delle collisioni */
 
-//ObjectNode* check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *list );
+// EntityNode* check_collision_granade_projectiles(EntityNode *obj, EntityNode *list );
 
-bool check_collision_frog_projectile(Object *frog, Object *proj);
+// bool check_collision_frog_projectile(Object *frog, Object *proj);
 
 
 // Rimuove completamente una finestra

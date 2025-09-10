@@ -2,7 +2,7 @@
 #ifndef PROJECTILE_THREAD_H
 #define PROJECTILE_THREAD_H
 
-#define PROJECTILE_THREAD_COOLDOWN 65000 
+#define PROJECTILE_THREAD_COOLDOWN 60000 
 
 typedef struct {
     pthread_t tid; 

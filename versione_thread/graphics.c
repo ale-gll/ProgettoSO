@@ -243,34 +243,6 @@ void remove_enemy_projectile(WINDOW *win, int y, int x) {
 }
 
 
-/* Funzioni per il controllo delle collisioni tra oggetti */
-
-// ObjectNode *check_collision_granade_projectiles(ObjectNode *obj, ObjectNode *list ) {
-    
-//     ObjectNode *curr = list; 
-
-//     while(curr) {  
-//         // Condizione di collisione: stessa cella
-//         if(curr->data.x == obj->data.x && curr->data.y == obj->data.y) {
-//             return curr;
-//         }
-        
-//         curr = curr->next;
-//     }
-//     return NULL;
-// }
-
-// bool check_collision_frog_projectile(Object *frog, Object *proj) {
-//     // Controllo orizzontale (X overlap)
-//     bool overlap_x = proj->x < frog->x + FROG_WIDTH &&
-//                      proj->x + 1 > frog->x;
-
-//     // Controllo verticale (Y overlap -> stessa corsia)
-//     bool overlap_y = proj->y == frog->y;
-
-//     return overlap_x && overlap_y;
-// }
-
 /* Chiusura di una finestra */
 
 void close_window(WINDOW *win) {
