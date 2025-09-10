@@ -210,17 +210,6 @@ void init_stats(Stats *stats) {
  * Funzioni per lo spawn degli oggetti dinamici 
 */
 
-bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
-
-    bool flag = true;
-
-    for (int i = 0; i < NUM_STREAMS; i++) {
-        flag &= spawn_single_croc(&streams[i], i, ipc, window_width);
-    }   
-    
-    return flag;
-}
-
 bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int window_width) {
     // Alloca nodo per il nuovo coccodrillo
     ObjectNode *new_node = malloc(sizeof(ObjectNode));
@@ -259,6 +248,17 @@ bool spawn_single_croc(Stream *stream, int stream_index, IPCHandles *ipc, int wi
     stream->last_spawn_time = time(NULL);
     stream->croc_count++;
     return true;
+}
+
+bool spawn_initial_crocs(Stream *streams, IPCHandles *ipc, int window_width) {
+
+    bool flag = true;
+
+    for (int i = 0; i < NUM_STREAMS; i++) {
+        flag &= spawn_single_croc(&streams[i], i, ipc, window_width);
+    }   
+    
+    return flag;
 }
 
 bool spawn_granade(IPCHandles *ipc, int start_x, int start_y, ObjectDirection dir, int active_lane, ObjectNode **active_granades) 
@@ -342,6 +342,107 @@ bool spawn_enemy_projectile(Stream *stream, int stream_index, IPCHandles *ipc, i
     // Aggiorna dati stream
     stream->proj_count++;
     return true;
+}
+
+
+/**
+ * Funzioni per pulizia grafica e kill processi
+ */
+
+void clean_all_stream_objects(WINDOW *win, Stream *streams) {
+    for (int i = 0; i < NUM_STREAMS; i++) {
+        ObjectNode *curr_croc = streams[i].crocs;
+        while (curr_croc) {
+            // Termina il processo se ancora attivo
+            if (curr_croc->data.pid > 0) {
+                kill(curr_croc->data.pid, SIGTERM);
+                waitpid(curr_croc->data.pid, NULL, 0);
+                remove_croc(win, curr_croc->data.y, curr_croc->data.x);
+            }
+
+            // Salva il prossimo nodo e libera il corrente
+            ObjectNode *tmp = curr_croc;
+            curr_croc = curr_croc->next;
+
+            tmp->next = NULL;
+            tmp->prev = NULL;
+            free(tmp);
+        }
+
+        // Elimino anche i proiettili
+        ObjectNode *curr_proj = streams[i].projs;
+        while(curr_proj) {
+            // Termina il processo se ancora attivo
+            if (curr_proj->data.pid > 0) {
+                kill(curr_proj->data.pid, SIGTERM);
+                waitpid(curr_proj->data.pid, NULL, 0);
+                remove_enemy_projectile(win, curr_proj->data.y, curr_proj->data.x);
+            }
+
+            ObjectNode *tmp = curr_proj;
+            curr_proj = curr_proj->next;
+
+            tmp->next = NULL;
+            tmp->prev = NULL;
+            free(tmp);
+        }
+
+        // Azzero le liste e i contatori
+        streams[i].crocs = NULL;
+        streams[i].croc_count = 0;
+        streams[i].projs = NULL;
+        streams[i].proj_count = 0;
+    }
+}
+
+void clean_all_granades(WINDOW *win, ObjectNode **granades) {
+    ObjectNode *curr = *granades;
+
+    while (curr) {
+        // Termina il processo e cancella dalla grafica
+        if (curr->data.pid > 0) {
+            kill(curr->data.pid, SIGTERM);
+            waitpid(curr->data.pid, NULL, 0);
+            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
+        }
+
+        // Passa al nodo successivo e libera il corrente
+        ObjectNode *tmp = curr;
+        curr = curr->next;
+
+        tmp->next = NULL;
+        tmp->prev = NULL;
+        free(tmp);
+    }
+
+    *granades = NULL; // lista svuotata
+}
+
+
+/**
+ * Funzione per la stampa del risultato
+ */
+
+void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner, int score){
+    wclear(win);
+    wbkgd(win, A_NORMAL);
+    box(win, 0, 0);
+
+    char *press_enter_str = "Press ENTER to exit...";
+    char *win_message = is_winner ? "YOU WIN" : "YOU LOSE";
+    char total_score_str[20];
+
+    int message_len = strlen(win_message);
+    int press_len = strlen(press_enter_str);
+    int tot_score_len = snprintf(total_score_str, 20, "%s %d", "Total score:", score);
+
+    wattron(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
+    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", win_message);
+    mvwprintw(win, (win_height/2)+1, (win_width - tot_score_len)/2, "%s", total_score_str);
+    mvwprintw(win, (win_height/2)+3, (win_width - press_len)/2, "%s", press_enter_str);
+    wattroff(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
+    wrefresh(win);
+    while(wgetch(win) != '\n');
 }
 
 
@@ -770,105 +871,4 @@ void game_loop(WINDOW *win, int start_y, int start_x) {
 
     close_window(stats_win);    //Elimino la finestra delle statistiche
     print_game_result(win, win_height, win_width, is_winner, stats.score);   //Stampa schermata di fine
-}
-
-
-/**
- * Funzioni per pulizia grafica e kill processi
- */
-
-void clean_all_stream_objects(WINDOW *win, Stream *streams) {
-    for (int i = 0; i < NUM_STREAMS; i++) {
-        ObjectNode *curr_croc = streams[i].crocs;
-        while (curr_croc) {
-            // Termina il processo se ancora attivo
-            if (curr_croc->data.pid > 0) {
-                kill(curr_croc->data.pid, SIGTERM);
-                waitpid(curr_croc->data.pid, NULL, 0);
-                remove_croc(win, curr_croc->data.y, curr_croc->data.x);
-            }
-
-            // Salva il prossimo nodo e libera il corrente
-            ObjectNode *tmp = curr_croc;
-            curr_croc = curr_croc->next;
-
-            tmp->next = NULL;
-            tmp->prev = NULL;
-            free(tmp);
-        }
-
-        // Elimino anche i proiettili
-        ObjectNode *curr_proj = streams[i].projs;
-        while(curr_proj) {
-            // Termina il processo se ancora attivo
-            if (curr_proj->data.pid > 0) {
-                kill(curr_proj->data.pid, SIGTERM);
-                waitpid(curr_proj->data.pid, NULL, 0);
-                remove_enemy_projectile(win, curr_proj->data.y, curr_proj->data.x);
-            }
-
-            ObjectNode *tmp = curr_proj;
-            curr_proj = curr_proj->next;
-
-            tmp->next = NULL;
-            tmp->prev = NULL;
-            free(tmp);
-        }
-
-        // Azzero le liste e i contatori
-        streams[i].crocs = NULL;
-        streams[i].croc_count = 0;
-        streams[i].projs = NULL;
-        streams[i].proj_count = 0;
-    }
-}
-
-void clean_all_granades(WINDOW *win, ObjectNode **granades) {
-    ObjectNode *curr = *granades;
-
-    while (curr) {
-        // Termina il processo e cancella dalla grafica
-        if (curr->data.pid > 0) {
-            kill(curr->data.pid, SIGTERM);
-            waitpid(curr->data.pid, NULL, 0);
-            remove_granade(win, curr->data.y, curr->data.x, curr->on_grass);
-        }
-
-        // Passa al nodo successivo e libera il corrente
-        ObjectNode *tmp = curr;
-        curr = curr->next;
-
-        tmp->next = NULL;
-        tmp->prev = NULL;
-        free(tmp);
-    }
-
-    *granades = NULL; // lista svuotata
-}
-
-
-/**
- * Funzione per la stampa del risultato
- */
-
-void print_game_result(WINDOW *win, int win_height, int win_width, bool is_winner, int score){
-    wclear(win);
-    wbkgd(win, A_NORMAL);
-    box(win, 0, 0);
-
-    char *press_enter_str = "Press ENTER to exit...";
-    char *win_message = is_winner ? "YOU WIN" : "YOU LOSE";
-    char total_score_str[20];
-
-    int message_len = strlen(win_message);
-    int press_len = strlen(press_enter_str);
-    int tot_score_len = snprintf(total_score_str, 20, "%s %d", "Total score:", score);
-
-    wattron(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
-    mvwprintw(win, win_height/2, (win_width - message_len)/2, "%s", win_message);
-    mvwprintw(win, (win_height/2)+1, (win_width - tot_score_len)/2, "%s", total_score_str);
-    mvwprintw(win, (win_height/2)+3, (win_width - press_len)/2, "%s", press_enter_str);
-    wattroff(win, COLOR_PAIR(START_MENU_COLOR_PAIR));
-    wrefresh(win);
-    while(wgetch(win) != '\n');
 }
